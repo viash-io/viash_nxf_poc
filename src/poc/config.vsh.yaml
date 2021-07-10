@@ -1,0 +1,78 @@
+functionality:
+  name: poc
+  arguments:
+    # INPUTS
+    - name: "--input_one"
+      type: file
+      required: true
+      multiple: false
+      example: "input.txt"
+      description: Input one.
+    - name: "--input_multi"
+      type: file
+      required: true
+      multiple: true
+      example: "input.txt"
+      description: Input multiple.
+    - name: "--input_opt2"
+      type: file
+      required: false
+      multiple: false
+      example: "input.txt"
+      description: Input optional.
+    
+    # OUTPUTS
+    - name: "--output_one"
+      type: file
+      required: true
+      multiple: false
+      example: "output.txt"
+      description: Output one.
+      direction: output
+    - name: "--output_multi"
+      type: file
+      required: true
+      multiple: true
+      example: "output.txt"
+      description: Output multiple.
+      direction: output
+    - name: "--output_opt2"
+      type: file
+      required: false
+      multiple: false
+      example: "output.txt"
+      description: Output optional.
+      direction: output
+    
+    # PARAMETERS
+    - name: "--string"
+      type: string
+      description: "String"
+      default: "A string"
+    - name: "--integer"
+      type: integer
+      description: "Integer"
+      default: 10
+    - name: "--double"
+      type: double
+      description: "Double"
+      default: 5.5
+    - name: "--flag_true"
+      type: boolean_true
+      description: "Flag true"
+    - name: "--flag_false"
+      type: boolean_false
+      description: "Flag false"
+    - name: "--boolean"
+      type: boolean
+      description: "Boolean"
+      default: true
+  resources:
+    - type: r_script
+      dest: script.R
+      text: print(par)
+platforms:
+  - type: docker
+    image: rocker/tidyverse:4.0.5
+  - type: nextflow
+    publish: true
