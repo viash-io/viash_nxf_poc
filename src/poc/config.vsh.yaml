@@ -14,7 +14,7 @@ functionality:
       multiple: true
       example: "input.txt"
       description: Input multiple.
-    - name: "--input_opt2"
+    - name: "--input_opt"
       type: file
       required: false
       multiple: false
@@ -36,7 +36,7 @@ functionality:
       example: "output.txt"
       description: Output multiple.
       direction: output
-    - name: "--output_opt2"
+    - name: "--output_opt"
       type: file
       required: false
       multiple: false

@@ -1,26 +1,28 @@
 nextflow.enable.dsl=2
 
-print("PARAMS1: ${params}")
-print("")
+include { poc } from "./target/nextflow/poc/main.nf" params(params)
 
-include  { normalize }               from "./normalize2/main.nf"                          params(params)
-
-print("PARAMS2: ${params}")
-print("")
-
-workflow test {
+workflow run_main {
     main:
-    rna = Channel.fromPath("data/pbmc_1k_protein_v3.normalize.output_rna.h5ad")
-    mod2 = Channel.fromPath("data/pbmc_1k_protein_v3.normalize.output_mod2.h5ad")
+    input_one = Channel.fromPath("data/pbmc_1k_protein_v3.normalize.output_rna.h5ad")
+    input_multi = Channel.fromPath("data/pbmc_1k_protein_v3.normalize.output_mod2.h5ad")
     
-    output_ = rna
-      | combine(mod2) 
-      | map { [ "test", [ input_rna: it[0], input_mod2: it[1] ] ] }
-      | view { [ "DEBUG1", it[0], it[1] ] }
-      | normalize
-      | view { [ "DEBUG2", it[0], it[1] ] }
+    output_ = input_one
+      | combine(input_multi)
+      | poc(
+          publish: false,
+          echo: false, 
+          map: { ["foo", [ input_one: it[0], input_multi: it[1], string: it[0].name ]] },
+          args: [ integer: 123, "double": 0.123 ],
+          params_key: "poc"
+        )
+      | poc(
+          publish: false,
+          echo: false, 
+          map: { [it[0], [ input_one: it[1].output_one, input_multi: it[1].output_multi ]] },
+          args: [ integer: 456, "double": 0.456 ],
+          params_key: "poc2"
+        )
       
     emit: output_
 }
-
-// | map { [ "test", [ input_rna: it[0], input_mod2: it[1] ], params ] }
