@@ -14,14 +14,15 @@ workflow run_main {
           echo: false, 
           map: { ["foo", [ input_one: it[0], input_multi: it[1], string: it[0].name ]] },
           args: [ integer: 123, "double": 0.123 ],
-          params_key: "poc"
+          key: "poc"
         )
       | poc(
           publish: false,
+          publishDir: "output",
           echo: false, 
           map: { [it[0], [ input_one: it[1].output_one, input_multi: it[1].output_multi ]] },
           args: [ integer: 456, "double": 0.456 ],
-          params_key: "poc2"
+          key: "poc2"
         )
       
     emit: output_

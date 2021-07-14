@@ -1,152 +1,152 @@
 nextflow.enable.dsl=2
 
 fun = [
-  "name": "poc",
-  "container": "poc",
-  "containerTag": "latest",
-  "containerRegistry": "",
-  "command": "poc",
-  "arguments": [
+  'name': 'poc',
+  'container': 'poc',
+  'containerTag': 'latest',
+  'containerRegistry': '',
+  'command': 'poc',
+  'arguments': [
     [
-      "name": "input_one",
-      "otype": "--",
-      "required": true,
-      "type": "file",
-      "direction": "Input",
-      "multiple": false,
-      "multiple_sep": ":",
-      "example": "input.txt",
-      "ext": "txt",
-      "description": "Input one."
+      'name': 'input_one',
+      'otype': '--',
+      'required': true,
+      'type': 'file',
+      'direction': 'Input',
+      'multiple': false,
+      'multiple_sep': ':',
+      'example': 'input.txt',
+      'ext': 'txt',
+      'description': 'Input one.'
     ],
     [
-      "name": "input_multi",
-      "otype": "--",
-      "required": true,
-      "type": "file",
-      "direction": "Input",
-      "multiple": true,
-      "multiple_sep": ":",
-      "example": "input.txt",
-      "ext": "txt",
-      "description": "Input multiple."
+      'name': 'input_multi',
+      'otype': '--',
+      'required': true,
+      'type': 'file',
+      'direction': 'Input',
+      'multiple': true,
+      'multiple_sep': ':',
+      'example': 'input.txt',
+      'ext': 'txt',
+      'description': 'Input multiple.'
     ],
     [
-      "name": "input_opt",
-      "otype": "--",
-      "required": false,
-      "type": "file",
-      "direction": "Input",
-      "multiple": false,
-      "multiple_sep": ":",
-      "example": "input.txt",
-      "ext": "txt",
-      "description": "Input optional."
+      'name': 'input_opt',
+      'otype': '--',
+      'required': false,
+      'type': 'file',
+      'direction': 'Input',
+      'multiple': false,
+      'multiple_sep': ':',
+      'example': 'input.txt',
+      'ext': 'txt',
+      'description': 'Input optional.'
     ],
     [
-      "name": "output_one",
-      "otype": "--",
-      "required": true,
-      "type": "file",
-      "direction": "Output",
-      "multiple": false,
-      "multiple_sep": ":",
-      "example": "output.txt",
-      "default": "id.poc.output_one.txt",
-      "ext": "txt",
-      "description": "Output one."
+      'name': 'output_one',
+      'otype': '--',
+      'required': true,
+      'type': 'file',
+      'direction': 'Output',
+      'multiple': false,
+      'multiple_sep': ':',
+      'example': 'output.txt',
+      'default': '$id.$key.output_one.txt',
+      'ext': 'txt',
+      'description': 'Output one.'
     ],
     [
-      "name": "output_multi",
-      "otype": "--",
-      "required": true,
-      "type": "file",
-      "direction": "Output",
-      "multiple": true,
-      "multiple_sep": ":",
-      "example": "output.txt",
-      "default": "id.poc.output_multi.txt",
-      "ext": "txt",
-      "description": "Output multiple."
+      'name': 'output_multi',
+      'otype': '--',
+      'required': true,
+      'type': 'file',
+      'direction': 'Output',
+      'multiple': true,
+      'multiple_sep': ':',
+      'example': 'output.txt',
+      'default': '$id.$key.output_multi.txt',
+      'ext': 'txt',
+      'description': 'Output multiple.'
     ],
     [
-      "name": "output_opt",
-      "otype": "--",
-      "required": false,
-      "type": "file",
-      "direction": "Output",
-      "multiple": false,
-      "multiple_sep": ":",
-      "example": "output.txt",
-      "default": "id.poc.output_default.txt",
-      "ext": "txt",
-      "description": "Output optional."
+      'name': 'output_opt',
+      'otype': '--',
+      'required': false,
+      'type': 'file',
+      'direction': 'Output',
+      'multiple': false,
+      'multiple_sep': ':',
+      'example': 'output.txt',
+      'default': '$id.$key.output_default.txt',
+      'ext': 'txt',
+      'description': 'Output optional.'
     ],
     [
-      "name": "string",
-      "otype": "--",
-      "required": false,
-      "type": "string",
-      "direction": "Input",
-      "multiple": false,
-      "multiple_sep": ":",
-      "default": "A string",
-      "description": "String"
+      'name': 'string',
+      'otype': '--',
+      'required': false,
+      'type': 'string',
+      'direction': 'Input',
+      'multiple': false,
+      'multiple_sep': ':',
+      'default': 'A string',
+      'description': 'String'
     ],
     [
-      "name": "integer",
-      "otype": "--",
-      "required": false,
-      "type": "integer",
-      "direction": "Input",
-      "multiple": false,
-      "multiple_sep": ":",
-      "default": "10",
-      "description": "Integer"
+      'name': 'integer',
+      'otype': '--',
+      'required': false,
+      'type': 'integer',
+      'direction': 'Input',
+      'multiple': false,
+      'multiple_sep': ':',
+      'default': '10',
+      'description': 'Integer'
     ],
     [
-      "name": "double",
-      "otype": "--",
-      "required": false,
-      "type": "double",
-      "direction": "Input",
-      "multiple": false,
-      "multiple_sep": ":",
-      "default": "5.5",
-      "description": "Double"
+      'name': 'double',
+      'otype': '--',
+      'required': false,
+      'type': 'double',
+      'direction': 'Input',
+      'multiple': false,
+      'multiple_sep': ':',
+      'default': '5.5',
+      'description': 'Double'
     ],
     [
-      "name": "flag_true",
-      "otype": "--",
-      "required": false,
-      "type": "boolean_true",
-      "direction": "Input",
-      "multiple": false,
-      "multiple_sep": ":",
-      "default": "false",
-      "description": "Flag true"
+      'name': 'flag_true',
+      'otype': '--',
+      'required': false,
+      'type': 'boolean_true',
+      'direction': 'Input',
+      'multiple': false,
+      'multiple_sep': ':',
+      'default': 'false',
+      'description': 'Flag true'
     ],
     [
-      "name": "flag_false",
-      "otype": "--",
-      "required": false,
-      "type": "boolean_false",
-      "direction": "Input",
-      "multiple": false,
-      "multiple_sep": ":",
-      "default": "true",
-      "description": "Flag false"
+      'name': 'flag_false',
+      'otype': '--',
+      'required': false,
+      'type': 'boolean_false',
+      'direction': 'Input',
+      'multiple': false,
+      'multiple_sep': ':',
+      'default': 'true',
+      'description': 'Flag false'
     ],
     [
-      "name": "boolean",
-      "otype": "--",
-      "required": false,
-      "type": "boolean",
-      "direction": "Input",
-      "multiple": false,
-      "multiple_sep": ":",
-      "default": "true",
-      "description": "Boolean"
+      'name': 'boolean',
+      'otype': '--',
+      'required': false,
+      'type': 'boolean',
+      'direction': 'Input',
+      'multiple': false,
+      'multiple_sep': ':',
+      'default': 'true',
+      'description': 'Boolean'
     ]
   ]
 ]
@@ -220,7 +220,7 @@ VIASHEOF
 
 defaultProcArgs = [
   echo: false,
-  params_key: "poc", 
+  key: "poc", 
   publish: false, 
   publishDir: ".", 
   container: "rocker/tidyverse:4.0.5", 
@@ -236,7 +236,7 @@ def poc(Map args = [:]) {
     input_
 
     main:
-      def poc_proc = poc_process.cloneWithName(processArgs.params_key + "_process")
+      def poc_proc = poc_process.cloneWithName(processArgs.key + "_process")
 
     output_= input_
         | map{ obj ->
@@ -254,8 +254,8 @@ def poc(Map args = [:]) {
 
           // fetch overrides in params
           def paramArgs = fun.arguments
-            .findAll { params.containsKey(processArgs.params_key + "__" + it.name) }
-            .collectEntries { [ it.name, params[processArgs.params_key + "__" + it.name] ] }
+            .findAll { params.containsKey(processArgs.key + "__" + it.name) }
+            .collectEntries { [ it.name, params[processArgs.key + "__" + it.name] ] }
           
           // fetch overrides in data
           def dataArgs = fun.arguments
@@ -266,13 +266,26 @@ def poc(Map args = [:]) {
           def combinedArgs = defaultArgs + paramArgs + processArgs.args + dataArgs
           def combinedProcessArgs = processArgs.subMap(["echo", "publish", "publishDir", "container"]) + [ id: id ]
 
+          def combinedArgs2 = fun.arguments
+            .findAll { combinedArgs.containsKey(it.name) }
+            .collectEntries { par ->
+              def parVal = combinedArgs[par.name]
+              if (par.direction.toLowerCase() == "output" && par.type == "file") {
+                def newVal = parVal.replaceAll('\\$id', id).replaceAll('\\$key', processArgs.key)
+                [par.name, newVal]
+              } else {
+                [par.name, parVal]
+              }
+              
+            }
+
           // TODO: check whether required arguments exist
           // TODO: check whether parameters have the right type
 
-          def paths = [ combinedArgs.input_one, combinedArgs.input_multi ]
+          def paths = [ combinedArgs2.input_one, combinedArgs2.input_multi ]
           
           // todo: add passthrough for other tuple items
-          def out = [ paths, combinedArgs, combinedProcessArgs ]
+          def out = [ paths, combinedArgs2, combinedProcessArgs ]
 
           out
         }
