@@ -159,10 +159,14 @@ fun = [
 process poc_process {
   tag "${processArgs.id}"
   echo { processArgs.echo }
+  // label "${processArgs.label}"
+  queue "${processArgs.queue}"
+  maxForks { processArgs.maxForks }
   cache "deep"
   stageInMode "symlink"
   container "${processArgs.container}"
-  publishDir "${processArgs.publishDir}", mode: 'copy', overwrite: true, enabled: { processArgs.publish }
+  publishDir "${processArgs.publishDir}", mode: "${processArgs.publishMode}", overwrite: true, enabled: { "${processArgs.publish}" }
+  
   input:
     tuple path(paths), val(args), val(processArgs)
   output:
@@ -175,7 +179,7 @@ process poc_process {
   def parInject = args.collect{ key, value ->
     "VIASH_PAR_${key.toUpperCase()}=\"$value\""
   }.join("\n")
-
+  println("processArgs.publish: ${processArgs.publish}")
 """
 # TO DO: VIASH_TEMP
 # TO DO: VIASH_RESOURCES_DIR
@@ -220,11 +224,20 @@ VIASHEOF
 
 defaultProcArgs = [
   echo: false,
-  key: "poc", 
+  key: "poc",
+  label: "",
+  queue: "",
   publish: false, 
-  publishDir: ".", 
+  publishDir: ".",
+  publishMode: "copy",
   container: "rocker/tidyverse:4.0.5", 
-  map: { it -> it }, 
+  map: null,
+  mapId: { it -> it[0] },
+  mapData: { it -> it[1] },
+  // TODO: map0, map1, map2, map3, ...?
+  filter: { it -> true },
+  mapOutput : {it -> it},
+  filterOutput : {it -> true},
   args: [:]
 ]
 
@@ -239,10 +252,12 @@ def poc(Map args = [:]) {
       def poc_proc = poc_process.cloneWithName(processArgs.key + "_process")
 
     output_= input_
-        | map{ obj ->
+        | map{ id_input_obj ->
           // TODO: add debug option to see what goes in and out of the workflow
+          if (processArgs.map) {
+            id_input_obj = processArgs.map(id_input_obj)
+          }
           
-          def id_input_obj = processArgs.map(obj)
           // TODO: add checks on id_input_obj to see if it is in the right format
           def id = id_input_obj[0]
           def data = id_input_obj[1]
@@ -264,7 +279,8 @@ def poc(Map args = [:]) {
           
           // combine params
           def combinedArgs = defaultArgs + paramArgs + processArgs.args + dataArgs
-          def combinedProcessArgs = processArgs.subMap(["echo", "publish", "publishDir", "container"]) + [ id: id ]
+          def passProcessArgs = ["echo", "label", "queue", "publish", "publishDir", "publishMode", "container"]
+          def combinedProcessArgs = processArgs.subMap(passProcessArgs) + [ id: id ]
 
           def combinedArgs2 = fun.arguments
             .findAll { combinedArgs.containsKey(it.name) }
