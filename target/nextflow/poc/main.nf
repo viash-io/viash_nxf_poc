@@ -1,5 +1,5 @@
 nextflow.enable.dsl=2
-
+// replace $ with {} or %%
 fun = [
   'name': 'poc',
   'container': 'poc',
@@ -156,16 +156,19 @@ fun = [
 // todo: add more directives 
 // https://www.nextflow.io/docs/latest/process.html#directives
 // e.g. time
+
+
 process poc_process {
   tag "${processArgs.id}"
   echo { processArgs.echo }
   // label "${processArgs.label}"
   queue "${processArgs.queue}"
-  maxForks { processArgs.maxForks }
+  // maxForks { processArgs.maxForks } // this doesn't work at all
+  // maxForks "${processArgs.maxForks}" // this almost works
   cache "deep"
   stageInMode "symlink"
   container "${processArgs.container}"
-  publishDir "${processArgs.publishDir}", mode: "${processArgs.publishMode}", overwrite: true, enabled: { "${processArgs.publish}" }
+  publishDir "${processArgs.publishDir}", mode: "${processArgs.publishMode}", overwrite: true, enabled: "${processArgs.publish}" 
   
   input:
     tuple path(paths), val(args), val(processArgs)
@@ -176,10 +179,10 @@ process poc_process {
     ...
     """
   script:
+  println("  processArgs in poc_process: " + processArgs)
   def parInject = args.collect{ key, value ->
     "VIASH_PAR_${key.toUpperCase()}=\"$value\""
   }.join("\n")
-  println("processArgs.publish: ${processArgs.publish}")
 """
 # TO DO: VIASH_TEMP
 # TO DO: VIASH_RESOURCES_DIR
@@ -241,6 +244,7 @@ defaultProcArgs = [
   args: [:]
 ]
 
+
 def poc(Map args = [:]) {
   def processArgs = defaultProcArgs + args
 
@@ -267,6 +271,7 @@ def poc(Map args = [:]) {
             [ it.name, it.default ]
           }
 
+
           // fetch overrides in params
           def paramArgs = fun.arguments
             .findAll { params.containsKey(processArgs.key + "__" + it.name) }
@@ -279,7 +284,7 @@ def poc(Map args = [:]) {
           
           // combine params
           def combinedArgs = defaultArgs + paramArgs + processArgs.args + dataArgs
-          def passProcessArgs = ["echo", "label", "queue", "publish", "publishDir", "publishMode", "container"]
+          def passProcessArgs = ["echo", "label", "queue", "publish", "publishDir", "publishMode", "container", "maxForks" ]
           def combinedProcessArgs = processArgs.subMap(passProcessArgs) + [ id: id ]
 
           def combinedArgs2 = fun.arguments
@@ -305,6 +310,7 @@ def poc(Map args = [:]) {
 
           out
         }
+        // | view{ ["middle", it]}
         | poc_proc
         | map { output ->
           [ output[0], [ output_one: output[1], output_multi: output[2] ] ]
