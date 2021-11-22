@@ -76,3 +76,6 @@ platforms:
     image: rocker/tidyverse:4.0.5
   - type: nextflow
     publish: true
+    directives:
+      cpus: 10
+      publishDir: "foo/bar"

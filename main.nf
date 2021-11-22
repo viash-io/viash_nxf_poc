@@ -9,7 +9,7 @@ workflow run_main {
     
     output_ = input_one
       | combine(input_multi)
-      | view{ [ "STEP0: ", it ]}
+      | view{ "STEP0: " + it }
       | poc(
           publish: false,
           publishDir: "output",
@@ -17,7 +17,7 @@ workflow run_main {
           map: { ["foo", [ input_one: it[0], input_multi: it[1], string: it[0].name ] ] },
           maxForks: 1
         )
-      | view{ [ "STEP1: ", it ]}
+      | view{ "STEP1: " + it }
       | poc(
           publish: true,
           publishDir: "output",
@@ -25,7 +25,7 @@ workflow run_main {
           args: [ integer: 456, "double": 0.456 ],
           key: "poc2"
         )
-      | view{ [ "STEP2: ", it ]}
+      | view{ "STEP2: " + it }
       
     emit: output_
 }
