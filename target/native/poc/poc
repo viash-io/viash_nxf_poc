@@ -444,7 +444,11 @@ meta <- list(
 resources_dir = "$VIASH_RESOURCES_DIR"
 
 print(par)
+readr::write_lines("derp", par\$output_one)
+readr::write_lines("derp", par\$output_multi)
+readr::write_lines("derp", par\$output_opt)
 VIASHMAIN
+PATH="$VIASH_RESOURCES_DIR:\$PATH"
 
 Rscript "\$tempscript"
 

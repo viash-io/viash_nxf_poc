@@ -70,12 +70,17 @@ functionality:
   resources:
     - type: r_script
       dest: script.R
-      text: print(par)
+      text: |
+        print(par)
+        readr::write_lines("derp", par$output_one)
+        readr::write_lines("derp", par$output_multi)
+        readr::write_lines("derp", par$output_opt)
 platforms:
   - type: docker
     image: rocker/tidyverse:4.0.5
+  - type: native
   - type: nextflow
     publish: true
-    directives:
-      cpus: 10
-      publishDir: "foo/bar"
+    # directives:
+    #  cpus: 10
+    #  publishDir: "foo/bar"

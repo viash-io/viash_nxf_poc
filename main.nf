@@ -11,19 +11,19 @@ workflow run_main {
       | combine(input_multi)
       | view{ "STEP0: " + it }
       | poc(
-          publish: false,
-          publishDir: "output",
-          publishMode: "symlink",
-          map: { ["foo", [ input_one: it[0], input_multi: it[1], string: it[0].name ] ] },
-          maxForks: 1
+          directives: [ echo: false, maxForks: 1 ],
+          // publish: false, // need to rework this
+          // publishDir: "output",
+          // publishMode: "symlink",
+          map: { ["foo", [ input_one: it[0], input_multi: it[1], string: it[0].name ] ] }
         )
       | view{ "STEP1: " + it }
       | poc(
-          publish: true,
-          publishDir: "output",
+          key: "poc2",
+          // publish: true, // need to rework this
+          // publishDir: "output",
           map: { [it[0], [ input_one: it[1].output_one, input_multi: it[1].output_multi ]] },
-          args: [ integer: 456, "double": 0.456 ],
-          key: "poc2"
+          args: [ integer: 456, "double": 0.456 ]
         )
       | view{ "STEP2: " + it }
       
