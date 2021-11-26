@@ -4,13 +4,13 @@ import nextflow.script.IncludeDef
 import nextflow.script.ScriptBinding
 import nextflow.script.ScriptMeta
 
+// look for some global variables
+metaThis = ScriptMeta.current()
+resourcesDir = metaThis.getScriptPath().getParent()
 
 // replace $ with {} or %%
 fun = [
   'name': 'poc',
-  'container': 'poc',
-  'containerTag': 'latest',
-  'containerRegistry': '',
   'arguments': [
     [
       'name': 'input_one',
@@ -156,48 +156,73 @@ fun = [
   ]
 ]
 
-
-
-
-// TODO: solve container differently
+// default values for the nextflow process
 defaultDirectives = [
   echo: false,
-  key: "poc",
   label: null,
   labels: [],
   queue: null,
   publish: false, 
   publishDir: ".",
   publishMode: "copy",
-  container: "rocker/tidyverse:4.0.5", 
+  container: [ registry: null, image: "rocker/tidyverse", tag: "4.0.5" ]
 ]
 
 defaultProcArgs = [
   key: fun['name'],
-  directives: [],
-  map: null,
+  directives: [:],
+  args: [:],
+  map: { it -> it },
   mapId: { it -> it[0] },
-  mapData: { it -> it[1] },
-  filter: { it -> true },
-  mapOutput : {it -> it},
-  filterOutput : {it -> true},
-  args: [:]
+  mapData: { it -> it[1] }
 ]
 
-def processArgsCheck(Map processArgs) {
+def processArgsCheck(Map args) {
+  // insert default processArgs if none were specified in args
+  def processArgs = defaultProcArgs + args
+
+  // check whether 'key' exists
   assert processArgs.containsKey("key")
   assert processArgs["key"] instanceof String
   assert processArgs["key"] ==~ /^[a-zA-Z_][a-zA-Z0-9_]*$/
+
+  // check whether directives exists and apply defaults
+  assert processArgs.containsKey("directives")
+  assert processArgs["directives"] instanceof HashMap
+  def drctv = defaultDirectives + processArgs["directives"]
+  
+
+  // transform map into string
+  if (drctv.containsKey("container")) {
+    assert drctv["container"] instanceof HashMap || drctv["container"] instanceof String
+    if (drctv["container"] instanceof HashMap) {
+      def m = drctv["container"]
+      def part1 = m.registry ? m.registry + "/" : ""
+      def part2 = m.image ? m.image : m.name
+      def part3 = m.tag ? ":" + m.tag : ":latest"
+      drctv["container"] = part1 + part2 + part3
+    }
+  }
+
+  // todo: process labels
+
+  
+  for (nam in [ "map", "mapId", "mapData" ]) {
+    if (processArgs.containsKey(nam)) {
+      assert processArgs[nam] instanceof Closure : "Expected process argument '$nam' to be null or a Closure. Found: class ${processArgs[nam].getClass()}"
+    }
+  }
+
+
+  // return output
+  processArgs["directives"] = drctv
+  return processArgs
 }
 
-def processScript() {
-  // TODO: check in viash whether script contains `'''` and escape
+def scriptFactory() {
+  // TODO in viash: check in viash whether script contains `'''` and escape
 
-  // NOTE: in the native platform script, \ needs to be escaped to \\ for this to work
-  // update: nevermind
-  // NOTE: 'VIASHMAIN' needs to be replaced with VIASHMAIN
-  // update: nevermind.
-
+  // NOTE for implementation in viash:
   // Use `val code = res.readWithPlaceholder(functionality).get` and
   // `BashWrapper.escapeViash(code)` to get the code below
   // don't forget to include $cdToResources$resourcesToPath as in BashWrapper.wrapScript
@@ -256,21 +281,20 @@ def processFactory(Map processArgs) {
   // subset directives and convert to list of tuples
   // todo: extend directive list
 
-  def directiveNames = [ "echo", "label", "queue", "publish", "publishDir", "publishMode", "container" ]
-  def directiveArgs = processArgs.directives.subMap(directiveNames)
+  def drctv = processArgs.directives
 
   def procStr = """nextflow.enable.dsl=2
   
 process $procKey {
   tag "\$id"
 
-  ${directiveArgs.containsKey("echo") ? "echo ${directiveArgs['echo']}" : ""}
-  ${directiveArgs.containsKey("container") ? "container \"${directiveArgs['container']}\"" : ""}
+  ${drctv.containsKey("echo") ? "echo ${drctv['echo']}" : ""}
+  ${drctv.containsKey("container") ? "container \"${drctv['container']}\"" : ""}
 
   input:
-    tuple val(id), path(paths), val(args)
+    tuple val(id), path(paths), val(args), val(passthrough)
   output:
-    tuple val("\$id"), path("\${args.output_one}"), path("\${args.output_multi}")
+    tuple val("\$id"), path("\${args.output_one}"), path("\${args.output_multi}"), val(passthrough)
   stub:
     $tripQuo
     touch "\${args.output_one}"
@@ -282,22 +306,20 @@ process $procKey {
   }.join("\\n")
 
 $tripQuo
-# TO DO: VIASH_TEMP
-# TO DO: VIASH_RESOURCES_DIR
+# TO DO: VIASH_TEMP // needs to be mounted
+# TO DO: VIASH_RESOURCES_DIR // needs to be mounted
 # TO DO: optional args
-export VIASH_RESOURCES_DIR="./"
+export VIASH_RESOURCES_DIR="${resourcesDir}"
 export VIASH_TEMP="./"
 export VIASH_META_FUNCTIONALITY_NAME="${fun["name"]}"
 
 \$parInject
 
-${processScript()}
+${scriptFactory()}
 
 $tripQuo
 }
 """
-// maybe this instead of inject
-// ${if (arg.containsKey("VIASH_PAR_INPUT_ONE")) "export VIASH_PAR_INPUT_ONE=\"${arg['input_one']}\"" else ""} 
 
   File file = new File("test_writefile.nf")
   // File file = File.createTempFile("process_${procKey}_",".tmp.nf")
@@ -314,16 +336,13 @@ $tripQuo
 }
 
 def poc(Map args = [:]) {
-  def processArgs = defaultProcArgs + args
-  processArgs["directives"] = defaultDirectives + processArgs["directives"]
 
-  processArgsCheck(processArgs)
+  def processArgs = processArgsCheck(args)
+  def processKey = processArgs["key"]
 
   // write process to temporary nf file and parse it in memory
   // def processObj = poc_process_tmp
   def processObj = processFactory(processArgs)
-
-  def processKey = processArgs["key"]
 
   workflow poc_wf_instance {
     take:
@@ -331,15 +350,30 @@ def poc(Map args = [:]) {
 
     main:
     output_= input_
-        | map{ id_input_obj ->
+        | map{ elem ->
           // TODO: add debug option to see what goes in and out of the workflow
           if (processArgs.map) {
-            id_input_obj = processArgs.map(id_input_obj)
+            elem = processArgs.map(elem)
+          }
+          if (processArgs.mapId) {
+            elem[0] = processArgs.mapId(elem)
+          }
+          if (processArgs.mapData) {
+            elem[1] = processArgs.mapData(elem)
           }
           
+          assert elem instanceof AbstractList : "Error in process '${processKey}': element in channel should be a tuple [id, parameters, ...otherargs...\nExample of expected input: [\"id\", [input: file('foo.txt'), arg: 10]]. Found: elem.getClass() is ${elem.getClass()}"
+          assert elem.size() >= 2 : "Error in process '${processKey}': expected length of element in input channel to be two or greater.\nExpected: elem.size() >= 2. Found: elem.size() == ${elem.size()}"
+          assert elem[0] instanceof String : "Error in process '${processKey}': element in channel should be a tuple [id, parameters, ...otherargs...\nExample of expected input: [\"id\", [input: file('foo.txt'), arg: 10]]. Found: ${elem}"
+          assert elem[1] instanceof HashMap | elem[1] instanceof Path : ""
+          if (elem[1] instanceof Path) {
+            // ass
+          }
+          // assert elem[0] instanceof String : "Error in process '${processKey}': element in channel should be a tuple [id, parameters, ...otherargs...\nExample of expected input: [\"id\", [input: file('foo.txt'), arg: 10]]. Found: ${elem}"
           // TODO: add checks on id_input_obj to see if it is in the right format
-          def id = id_input_obj[0]
-          def data = id_input_obj[1]
+          def id = elem[0]
+          def data = elem[1]
+
 
           // fetch default params from functionality
           def defaultArgs = fun.arguments.findAll{ it.default }.collectEntries {
@@ -377,15 +411,20 @@ def poc(Map args = [:]) {
 
           def paths = [ combinedArgs2.input_one, combinedArgs2.input_multi ]
           
-          // todo: add passthrough for other tuple items
-          def out = [ id, paths, combinedArgs2 ]
-
-          out
+          [ id, paths, combinedArgs2, elem.drop(2) ]
         }
         // | view{ ["middle", it]}
         | processObj
         | map { output ->
-          [ output[0], [ output_one: output[1], output_multi: output[2] ] ]
+          
+          def out = [ output[0], [ output_one: output[1], output_multi: output[2] ] ]
+
+          // passthrough additional items
+          if (output[3]) {
+            out.addAll(output[3])
+          }
+
+          out
         }
 
     emit:

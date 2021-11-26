@@ -15,14 +15,14 @@ workflow run_main {
           // publish: false, // need to rework this
           // publishDir: "output",
           // publishMode: "symlink",
-          map: { ["foo", [ input_one: it[0], input_multi: it[1], string: it[0].name ] ] }
+          map: { ["foo", [ input_one: it[0], input_multi: it[1], string: it[0].name ], "testpassthrough"] }
         )
       | view{ "STEP1: " + it }
       | poc(
           key: "poc2",
           // publish: true, // need to rework this
           // publishDir: "output",
-          map: { [it[0], [ input_one: it[1].output_one, input_multi: it[1].output_multi ]] },
+          mapData: { [ input_one: it[1].output_one, input_multi: it[1].output_multi, string: it[2] ] },
           args: [ integer: 456, "double": 0.456 ]
         )
       | view{ "STEP2: " + it }
