@@ -290,6 +290,7 @@ process $procKey {
 
   ${drctv.containsKey("echo") ? "echo ${drctv['echo']}" : ""}
   ${drctv.containsKey("container") ? "container \"${drctv['container']}\"" : ""}
+  ${drctv.containsKey("publishDir") ? "publishDir \"${drctv['publishDir']}\"" : ""}
 
   input:
     tuple val(id), path(paths), val(args), val(passthrough)
