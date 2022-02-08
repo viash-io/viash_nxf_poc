@@ -162,7 +162,17 @@ defaultDirectives = [
   label: null,
   labels: [],
   queue: null,
-  publish: false, 
+  /* proposed alternative ways of working:
+  publish: [],
+  publish: "output",
+  publish: ["output"],
+  publish: [dir: "output", pattern: "*.h5ad"],
+  publish: [
+    [dir: "output", pattern: "*.h5ad", mode: "rellink"],
+    [dir: "logs", pattern: "*.log", mode: "copy"]
+  ],
+  */
+  publish: false,
   publishDir: ".",
   publishMode: "copy",
   container: [ registry: null, image: "rocker/tidyverse", tag: "4.0.5" ]
