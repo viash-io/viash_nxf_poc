@@ -162,16 +162,6 @@ defaultDirectives = [
   label: null,
   labels: [],
   queue: null,
-  /* proposed alternative ways of working:
-  publish: [],
-  publish: "output",
-  publish: ["output"],
-  publish: [dir: "output", pattern: "*.h5ad"],
-  publish: [
-    [dir: "output", pattern: "*.h5ad", mode: "rellink"],
-    [dir: "logs", pattern: "*.log", mode: "copy"]
-  ],
-  */
   publish: [],
   container: [ registry: null, image: "rocker/tidyverse", tag: "4.0.5" ]
 ]
@@ -198,22 +188,37 @@ def assertMapKeys(Map map, List expectedKeys, List requiredKeys = [], String map
 def processDirectives(Map directives) {
   def drctv = defaultDirectives + directives
 
-  // DIRECTIVE accelerator
+  /* DIRECTIVE accelerator
+     accepted examples:
+     - [ amount: 4, type: "nvidia-tesla-k80" ]
+   */
   if (drctv.containsKey("accelerator")) {
     assertMapKeys(drctv["accelerator"], ["amount", "type"], ["amount", "type"], "accelerator")
   }
 
-  // DIRECTIVE afterScript
+  /* DIRECTIVE afterScript
+     accepted examples:
+     - "source /cluster/bin/cleanup"
+   */
   if (drctv.containsKey("afterScript")) {
     assert drctv["afterScript"] instanceof String
   }
 
-  // DIRECTIVE beforeScript
+  /* DIRECTIVE beforeScript
+     accepted examples:
+     - "source /cluster/bin/setup"
+   */
   if (drctv.containsKey("beforeScript")) {
     assert drctv["beforeScript"] instanceof String
   }
 
-  // DIRECTIVE cache
+  /* DIRECTIVE cache
+     accepted examples:
+     - true
+     - false
+     - "deep"
+     - "lenient"
+   */
   if (drctv.containsKey("cache")) {
     assert drctv["cache"] instanceof String || drctv["cache"] instanceof Boolean
     if (drctv["cache"] instanceof String) {
@@ -221,7 +226,14 @@ def processDirectives(Map directives) {
     }
   }
 
-  // DIRECTIVE container
+  /* DIRECTIVE container
+     accepted examples:
+     - "foo/bar:tag"
+     - [ registry: "reg", image: "im", tag: "ta" ]
+       is transformed to "reg/im:ta"
+     - [ image: "im" ] 
+       is transformed to "im:latest"
+   */
   if (drctv.containsKey("container")) {
     assert drctv["container"] instanceof HashMap || drctv["container"] instanceof String
     if (drctv["container"] instanceof HashMap) {
@@ -234,7 +246,15 @@ def processDirectives(Map directives) {
     }
   }
 
-  // DIRECTIVE publishDir
+  /* DIRECTIVE publishDir
+     accepted examples:
+     - []
+     - [ [ path: "foo", enabled: true ], [ path: "bar", enabled: false ] ]
+     - "/path/to/dir" 
+       is transformed to [[ path: "/path/to/dir" ]]
+     - [ path: "/path/to/dir", mode: "cache" ]
+       is transformed to [[ path: "/path/to/dir", mode: "cache" ]]
+   */
   // TODO: should we also look at params["publishDir"]?
   if (drctv.containsKey("publishDir")) {
     def pblsh = drctv["publishDir"]
