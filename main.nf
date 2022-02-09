@@ -4,7 +4,7 @@ include { poc } from "./target/nextflow/poc_new/main.nf" params(params)
 
 tupleOutToTupleIn = { [ input_one: it[1].output_one, input_multi: it[1].output_multi ] }
 
-workflow run_main {
+workflow {
     main:
     input_duplicate = Channel.from([1,2,3])
     input_one = Channel.fromPath("data/pbmc_1k_protein_v3.normalize.output_rna.h5ad")

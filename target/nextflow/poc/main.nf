@@ -401,7 +401,7 @@ def processFactory(Map processArgs) {
 
   // convert publish array into tags
   def publishStrs = drctv["publishDir"].collect{ elem ->
-    "\npublishDir " + elem.collect{ k, v -> k + ": " + v.inspect() }.join(", ")
+    "\n  publishDir " + elem.collect{ k, v -> k + ": " + v.inspect() }.join(", ")
   }.join()
 
   // generate process string
@@ -443,7 +443,7 @@ $tripQuo
 }
 """
 
-  File file = new File("test_writefile.nf")
+  File file = new File("test_writefile-${procKey}.nf")
   // File file = File.createTempFile("process_${procKey}_",".tmp.nf")
   file.write procStr
 
