@@ -13,18 +13,22 @@ workflow run_main {
       | combine(input_multi)
       | view{ "STEP0: " + it }
       | poc(
-          directives: [ echo: false, maxForks: 1 ],
-          // publish: false, // need to rework this
-          // publishDir: "output",
-          // publishMode: "symlink",
+          directives: [ 
+            echo: false, 
+            maxForks: 1,
+            publishDir: [ path: "output/", mode: "symlink", enabled: false ]
+          ],
           map: { ["foo" + it[0], [ input_one: it[1], input_multi: it[2], string: it[1].name ], "testpassthrough"] }
         )
       | view{ "STEP1: " + it }
       | poc(
           key: "poc2",
-          /* directives: [ "publish": true, "publishDir": "output" ], */
-          // publish: true, // need to rework this
-          /* publishDir: "output", */
+          directives: [
+            publishDir: [
+              [ path: "output/", pattern: "output_multi", mode: "copy", enabled: false ],
+              [ path: "output/", pattern: "*output_one*", mode: "copy", enabled: true ]
+            ]
+          ],
           mapData: { [ input_one: it[1].output_one, input_multi: it[1].output_multi, string: it[1] ] },
           args: [ integer: 456, "double": 0.456 ]
         )

@@ -172,9 +172,7 @@ defaultDirectives = [
     [dir: "logs", pattern: "*.log", mode: "copy"]
   ],
   */
-  publish: false,
-  publishDir: ".",
-  publishMode: "copy",
+  publish: [],
   container: [ registry: null, image: "rocker/tidyverse", tag: "4.0.5" ]
 ]
 
@@ -188,6 +186,8 @@ defaultProcArgs = [
 ]
 
 def processArgsCheck(Map args) {
+  // TODO: add assert messages
+
   // insert default processArgs if none were specified in args
   def processArgs = defaultProcArgs + args
 
@@ -214,9 +214,59 @@ def processArgsCheck(Map args) {
     }
   }
 
-  // todo: process labels
+  // transform and check publish maps
+  if (drctv.containsKey("publishDir")) {
+    def pblsh = drctv["publishDir"]
+    
+    // check different options
+    assert pblsh instanceof ArrayList || pblsh instanceof HashMap || pblsh instanceof String
+    
+    // turn into list if not already so
+    // for some reason, 'if (!pblsh instanceof ArrayList) pblsh = [ pblsh ]' doesn't work.
+    pblsh = pblsh instanceof ArrayList ? pblsh : [ pblsh ]
 
-  
+    // check elements of publishDir
+    pblsh = pblsh.collect{ elem ->
+      // turn into map if not already so
+      elem = elem instanceof String ? [ path: elem ] : elem
+
+      // check types and keys
+      assert elem instanceof HashMap : "Expected publish argument '$elem' to be a String or a HashMap. Found: class ${elem.getClass()}"
+      elem.forEach { 
+        key,val -> assert key in [ "path", "mode", "overwrite", "pattern", "saveAs", "enabled" ] : "Unexpected publish key '$key'"
+      }
+
+      // check elements in map
+      assert elem.containsKey("path")
+      assert elem["path"] instanceof String
+      if (elem.containsKey("mode")) {
+        assert elem["mode"] instanceof String
+        assert elem["mode"] in [ "symlink", "rellink", "link", "copy", "copyNoFollow", "move" ]
+      }
+      if (elem.containsKey("overwrite")) {
+        assert elem["overwrite"] instanceof Boolean
+      }
+      if (elem.containsKey("pattern")) {
+        assert elem["pattern"] instanceof String
+      }
+        // todo: saveAs doesn't really work atm
+      assert !elem.containsKey("saveAs") : "saveAs is currently not supported. Contact Viash developers if this functionality is desired / required."
+      if (elem.containsKey("saveAs")) {
+        assert elem["saveAs"] instanceof Closure
+      }
+      if (elem.containsKey("enabled")) {
+        assert elem["enabled"] instanceof Boolean
+      }
+
+      // return final result
+      elem
+    }
+    // store final directive
+    drctv["publishDir"] = pblsh
+  }
+
+
+  // todo: process labels
   for (nam in [ "map", "mapId", "mapData" ]) {
     if (processArgs.containsKey(nam)) {
       assert processArgs[nam] instanceof Closure : "Expected process argument '$nam' to be null or a Closure. Found: class ${processArgs[nam].getClass()}"
@@ -293,14 +343,17 @@ def processFactory(Map processArgs) {
 
   def drctv = processArgs.directives
 
+  def publishStrs = drctv["publishDir"].collect{ elem ->
+    "\npublishDir " + elem.collect{ k, v -> k + ": " + v.inspect() }.join(", ")
+  }.join()
+
   def procStr = """nextflow.enable.dsl=2
   
 process $procKey {
-  tag "\$id"
+  tag "\$id"$publishStrs
 
   ${drctv.containsKey("echo") ? "echo ${drctv['echo']}" : ""}
   ${drctv.containsKey("container") ? "container \"${drctv['container']}\"" : ""}
-  ${drctv.containsKey("publishDir") ? "publishDir \"${drctv['publishDir']}\"" : ""}
 
   input:
     tuple val(id), path(paths), val(args), val(passthrough)
