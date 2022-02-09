@@ -185,36 +185,57 @@ defaultProcArgs = [
   mapData: { it -> it[1] }
 ]
 
-def processArgsCheck(Map args) {
-  // TODO: add assert messages
+def assertMapKeys(Map map, List expectedKeys, List requiredKeys = [], String mapName = "") {
+  assert map instanceof HashMap : "Expected publish argument '$elem' to be a String or a HashMap. Found: class ${elem.getClass()}"
+  map.forEach { key, val -> 
+    assert key in expectedKeys : "Unexpected key '$key' in ${mapName ? mapName + " " : ""}map"
+  }
+  requiredKeys.forEach { requiredKey -> 
+    assert map.containsKey(requiredKey) : "Missing required key '$key' in ${mapName ? mapName + " " : ""}map"
+  }
+}
 
-  // insert default processArgs if none were specified in args
-  def processArgs = defaultProcArgs + args
+def processDirectives(Map directives) {
+  def drctv = defaultDirectives + directives
 
-  // check whether 'key' exists
-  assert processArgs.containsKey("key")
-  assert processArgs["key"] instanceof String
-  assert processArgs["key"] ==~ /^[a-zA-Z_][a-zA-Z0-9_]*$/
+  // DIRECTIVE accelerator
+  if (drctv.containsKey("accelerator")) {
+    assertMapKeys(drctv["accelerator"], ["amount", "type"], ["amount", "type"], "accelerator")
+  }
 
-  // check whether directives exists and apply defaults
-  assert processArgs.containsKey("directives")
-  assert processArgs["directives"] instanceof HashMap
-  def drctv = defaultDirectives + processArgs["directives"]
-  
+  // DIRECTIVE afterScript
+  if (drctv.containsKey("afterScript")) {
+    assert drctv["afterScript"] instanceof String
+  }
 
-  // transform map into string
+  // DIRECTIVE beforeScript
+  if (drctv.containsKey("beforeScript")) {
+    assert drctv["beforeScript"] instanceof String
+  }
+
+  // DIRECTIVE cache
+  if (drctv.containsKey("cache")) {
+    assert drctv["cache"] instanceof String || drctv["cache"] instanceof Boolean
+    if (drctv["cache"] instanceof String) {
+      assert drctv["cache"] in ["deep", "lenient"] : "Unexpected value for cache"
+    }
+  }
+
+  // DIRECTIVE container
   if (drctv.containsKey("container")) {
     assert drctv["container"] instanceof HashMap || drctv["container"] instanceof String
     if (drctv["container"] instanceof HashMap) {
       def m = drctv["container"]
+      assertMapKeys(m, [ "registry", "image", "tag" ], ["image"], "container")
       def part1 = m.registry ? m.registry + "/" : ""
-      def part2 = m.image ? m.image : m.name
+      def part2 = m.image
       def part3 = m.tag ? ":" + m.tag : ":latest"
       drctv["container"] = part1 + part2 + part3
     }
   }
 
-  // transform and check publish maps
+  // DIRECTIVE publishDir
+  // TODO: should we also look at params["publishDir"]?
   if (drctv.containsKey("publishDir")) {
     def pblsh = drctv["publishDir"]
     
@@ -232,9 +253,7 @@ def processArgsCheck(Map args) {
 
       // check types and keys
       assert elem instanceof HashMap : "Expected publish argument '$elem' to be a String or a HashMap. Found: class ${elem.getClass()}"
-      elem.forEach { 
-        key,val -> assert key in [ "path", "mode", "overwrite", "pattern", "saveAs", "enabled" ] : "Unexpected publish key '$key'"
-      }
+      assertMapKeys(elem, [ "path", "mode", "overwrite", "pattern", "saveAs", "enabled" ], ["path"], "publishDir")
 
       // check elements in map
       assert elem.containsKey("path")
@@ -265,6 +284,24 @@ def processArgsCheck(Map args) {
     drctv["publishDir"] = pblsh
   }
 
+  return drctv
+}
+
+def processProcessArgs(Map args) {
+  // TODO: add assert messages
+
+  // insert default processArgs if none were specified in args
+  def processArgs = defaultProcArgs + args
+
+  // check whether 'key' exists
+  assert processArgs.containsKey("key")
+  assert processArgs["key"] instanceof String
+  assert processArgs["key"] ==~ /^[a-zA-Z_][a-zA-Z0-9_]*$/
+
+  // check whether directives exists and apply defaults
+  assert processArgs.containsKey("directives")
+  assert processArgs["directives"] instanceof HashMap
+  processArgs["directives"] = processDirectives(processArgs["directives"])
 
   // todo: process labels
   for (nam in [ "map", "mapId", "mapData" ]) {
@@ -273,9 +310,8 @@ def processArgsCheck(Map args) {
     }
   }
 
-
   // return output
-  processArgs["directives"] = drctv
+  
   return processArgs
 }
 
@@ -343,10 +379,12 @@ def processFactory(Map processArgs) {
 
   def drctv = processArgs.directives
 
+  // convert publish array into tags
   def publishStrs = drctv["publishDir"].collect{ elem ->
     "\npublishDir " + elem.collect{ k, v -> k + ": " + v.inspect() }.join(", ")
   }.join()
 
+  // generate process string
   def procStr = """nextflow.enable.dsl=2
   
 process $procKey {
@@ -400,8 +438,7 @@ $tripQuo
 }
 
 def poc(Map args = [:]) {
-
-  def processArgs = processArgsCheck(args)
+  def processArgs = processProcessArgs(args)
   def processKey = processArgs["key"]
 
   // write process to temporary nf file and parse it in memory
