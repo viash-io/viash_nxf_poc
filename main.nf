@@ -1,6 +1,7 @@
 nextflow.enable.dsl=2
 
 include { poc } from "./target/nextflow/poc/main.nf" params(params)
+// TODO: can I discover the name of this include?
 
 workflow run_main {
     main:
@@ -11,16 +12,10 @@ workflow run_main {
     output_ = input_duplicate
       | combine(input_one)
       | combine(input_multi)
-      | view{ "STEP0: " + it }
-      | poc(
-          directives: [ 
-            echo: false, 
-            maxForks: 1,
-            publishDir: [ path: "output/", mode: "symlink", enabled: false ]
-          ],
-          map: { ["foo" + it[0], [ input_one: it[1], input_multi: it[2], string: it[1].name ], "testpassthrough"] }
-        )
-      | view{ "STEP1: " + it }
+      // | view{ "STEP0: " + it }
+      | map{ ["foo" + it[0], [ input_one: it[1], input_multi: it[2], string: it[1].name ], "testpassthrough"] }
+      | poc(key: "poc1")
+      // | view{ "STEP1: " + it }
       | poc(
           key: "poc2",
           directives: [
@@ -32,6 +27,6 @@ workflow run_main {
           mapData: { [ input_one: it[1].output_one, input_multi: it[1].output_multi, string: it[1] ] },
           args: [ integer: 456, "double": 0.456 ]
         )
-      | view{ "STEP2: " + it }
+      // | view{ "STEP2: " + it }
     emit: output_
 }

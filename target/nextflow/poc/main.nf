@@ -488,13 +488,12 @@ def poc(Map args = [:]) {
           assert elem[0] instanceof String : "Error in process '${processKey}': element in channel should be a tuple [id, parameters, ...otherargs...\nExample of expected input: [\"id\", [input: file('foo.txt'), arg: 10]]. Found: ${elem}"
           assert elem[1] instanceof HashMap | elem[1] instanceof Path : ""
           if (elem[1] instanceof Path) {
-            // ass
+            // assert ...
           }
           // assert elem[0] instanceof String : "Error in process '${processKey}': element in channel should be a tuple [id, parameters, ...otherargs...\nExample of expected input: [\"id\", [input: file('foo.txt'), arg: 10]]. Found: ${elem}"
           // TODO: add checks on id_input_obj to see if it is in the right format
           def id = elem[0]
           def data = elem[1]
-
 
           // fetch default params from functionality
           def defaultArgs = fun.arguments.findAll{ it.default }.collectEntries {
