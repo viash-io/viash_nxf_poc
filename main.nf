@@ -1,7 +1,10 @@
 nextflow.enable.dsl=2
 
-include { poc } from "./target/nextflow/poc/main.nf" params(params)
-// TODO: can I discover the name of this include?
+include { poc } from "./target/nextflow/poc_new/main.nf" params(params)
+// include { poc } from "./target/nextflow/poc/main.nf" params(params)
+include { printAllMethods } from "./utils.nf"
+
+// printAllMethods(poc)
 
 workflow run_main {
     main:
@@ -14,10 +17,11 @@ workflow run_main {
       | combine(input_multi)
       // | view{ "STEP0: " + it }
       | map{ ["foo" + it[0], [ input_one: it[1], input_multi: it[2], string: it[1].name ], "testpassthrough"] }
-      | poc(key: "poc1")
-      // | view{ "STEP1: " + it }
-      | poc(
-          key: "poc2",
+      | poc
+      | poc.run(key: "poc1", mapData: { [ input_one: it[1].output_one, input_multi: it[1].output_multi, string: it[1] ] })
+      | poc.run(key: "poc2", mapData: { [ input_one: it[1].output_one, input_multi: it[1].output_multi, string: it[1] ] })
+      | poc.run(
+          key: "poc3",
           directives: [
             publishDir: [
               [ path: "output/", pattern: "output_multi", mode: "copy", enabled: false ],

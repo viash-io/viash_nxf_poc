@@ -457,7 +457,7 @@ $tripQuo
   return proc_out
 }
 
-def poc(Map args) {
+def workflowFactory(Map args) {
   def processArgs = processProcessArgs(args)
   def processKey = processArgs["key"]
 
@@ -465,7 +465,7 @@ def poc(Map args) {
   // def processObj = poc_process_tmp
   def processObj = processFactory(processArgs)
 
-  workflow poc_wf_instance {
+  workflow pocInstance {
     take:
     input_
 
@@ -551,5 +551,17 @@ def poc(Map args) {
     output_
   }
 
-  return poc_wf_instance
+  return pocInstance.cloneWithName(processKey)
 }
+
+// initialise standard workflow
+poc = workflowFactory(key: "poc")
+
+// add factory function
+poc.metaClass.run = { args ->
+  workflowFactory(args)
+}
+
+// add workflow to environment
+ScriptMeta.current().addDefinition(poc)
+
