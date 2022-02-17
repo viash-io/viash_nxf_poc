@@ -6,6 +6,8 @@ include { printAllMethods } from "./utils.nf"
 
 // printAllMethods(poc)
 
+tupleOutToTupleIn = { [ input_one: it[1].output_one, input_multi: it[1].output_multi ] }
+
 workflow run_main {
     main:
     input_duplicate = Channel.from([1,2,3])
@@ -18,8 +20,8 @@ workflow run_main {
       // | view{ "STEP0: " + it }
       | map{ ["foo" + it[0], [ input_one: it[1], input_multi: it[2], string: it[1].name ], "testpassthrough"] }
       | poc
-      | poc.run(key: "poc1", mapData: { [ input_one: it[1].output_one, input_multi: it[1].output_multi, string: it[1] ] })
-      | poc.run(key: "poc2", mapData: { [ input_one: it[1].output_one, input_multi: it[1].output_multi, string: it[1] ] })
+      | poc.run(key: "poc1", mapData: tupleOutToTupleIn)
+      | poc.run(key: "poc2", mapData: tupleOutToTupleIn)
       | poc.run(
           key: "poc3",
           directives: [
@@ -28,7 +30,7 @@ workflow run_main {
               [ path: "output/", pattern: "*output_one*", mode: "copy", enabled: true ]
             ]
           ],
-          mapData: { [ input_one: it[1].output_one, input_multi: it[1].output_multi, string: it[1] ] },
+          mapData: tupleOutToTupleIn,
           args: [ integer: 456, "double": 0.456 ]
         )
       // | view{ "STEP2: " + it }
