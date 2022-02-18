@@ -1,10 +1,6 @@
 nextflow.enable.dsl=2
 
 include { poc } from "./target/nextflow/poc_new/main.nf" params(params)
-// include { poc } from "./target/nextflow/poc/main.nf" params(params)
-include { printAllMethods } from "./utils.nf"
-
-// printAllMethods(poc)
 
 tupleOutToTupleIn = { [ input_one: it[1].output_one, input_multi: it[1].output_multi ] }
 
@@ -17,7 +13,7 @@ workflow run_main {
     output_ = input_duplicate
       | combine(input_one)
       | combine(input_multi)
-      // | view{ "STEP0: " + it }
+      | view{ "STEP0: " + it }
       | map{ ["foo" + it[0], [ input_one: it[1], input_multi: it[2], string: it[1].name ], "testpassthrough"] }
       | poc
       | poc.run(key: "poc1", mapData: tupleOutToTupleIn)
@@ -27,12 +23,16 @@ workflow run_main {
           directives: [
             publishDir: [
               [ path: "output/", pattern: "output_multi", mode: "copy", enabled: false ],
-              [ path: "output/", pattern: "*output_one*", mode: "copy", enabled: true ]
-            ]
+              [ path: "output/", pattern: "*output_one*", mode: "copy", enabled: true, saveAs: "{ it + '.step3.txt' }" ] // test closure workaround for saveas
+            ],
+            cache: true,
+            executor: "local",
+            label: ["foo", "bar"],
+            memory: "{ id == 'foo1' ? '10GB' : '5GB' }" // test workaround for closures
           ],
           mapData: tupleOutToTupleIn,
           args: [ integer: 456, "double": 0.456 ]
         )
-      // | view{ "STEP2: " + it }
+      | view{ "STEP1: " + it }
     emit: output_
 }

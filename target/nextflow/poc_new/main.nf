@@ -158,11 +158,8 @@ fun = [
 
 // default values for the nextflow process
 defaultDirectives = [
+  tag: '$id',
   echo: false,
-  label: null,
-  labels: [],
-  queue: null,
-  publish: [],
   container: [ registry: null, image: "rocker/tidyverse", tag: "4.0.5" ]
 ]
 
@@ -175,7 +172,7 @@ defaultProcessArgs = [
   mapData: { it -> it[1] }
 ]
 
-def assertMapKeys(Map map, List expectedKeys, List requiredKeys = [], String mapName = "") {
+def assertMapKeys(map, expectedKeys, requiredKeys, mapName) {
   assert map instanceof HashMap : "Expected publish argument '$elem' to be a String or a HashMap. Found: class ${elem.getClass()}"
   map.forEach { key, val -> 
     assert key in expectedKeys : "Unexpected key '$key' in ${mapName ? mapName + " " : ""}map"
@@ -185,15 +182,14 @@ def assertMapKeys(Map map, List expectedKeys, List requiredKeys = [], String map
   }
 }
 
-def processDirectives(Map directives) {
-  def drctv = defaultDirectives + directives
-
+// TODO: unit test processDirectives
+def processDirectives(drctv) {
   /* DIRECTIVE accelerator
      accepted examples:
-     - [ amount: 4, type: "nvidia-tesla-k80" ]
+     - [ limit: 4, type: "nvidia-tesla-k80" ]
    */
   if (drctv.containsKey("accelerator")) {
-    assertMapKeys(drctv["accelerator"], ["amount", "type"], ["amount", "type"], "accelerator")
+    assertMapKeys(drctv["accelerator"], ["type", "limit", "request", "runtime"], [], "accelerator")
   }
 
   /* DIRECTIVE afterScript
@@ -226,6 +222,19 @@ def processDirectives(Map directives) {
     }
   }
 
+  /* DIRECTIVE conda
+     accepted examples:
+     - "bwa=0.7.15"
+     - "bwa=0.7.15 fastqc=0.11.5"
+     - ["bwa=0.7.15", "fastqc=0.11.5"]
+   */
+  if (drctv.containsKey("conda")) {
+    if (drctv["conda"] instanceof ArrayList) {
+      drctv["conda"] = drctv["conda"].join(" ")
+    }
+    assert drctv["conda"] instanceof String
+  }
+
   /* DIRECTIVE container
      accepted examples:
      - "foo/bar:tag"
@@ -243,6 +252,158 @@ def processDirectives(Map directives) {
       def part2 = m.image
       def part3 = m.tag ? ":" + m.tag : ":latest"
       drctv["container"] = part1 + part2 + part3
+    }
+  }
+
+  /* DIRECTIVE containerOptions
+     accepted examples:
+     - "--foo bar"
+     - ["--foo bar", "-f b"]
+   */
+  if (drctv.containsKey("containerOptions")) {
+    if (drctv["containerOptions"] instanceof ArrayList) {
+      drctv["containerOptions"] = drctv["containerOptions"].join(" ")
+    }
+    assert drctv["containerOptions"] instanceof String
+  }
+
+  /* DIRECTIVE cpus
+     accepted examples:
+     - 1
+     - 10
+   */
+  if (drctv.containsKey("cpus")) {
+    assert drctv["cpus"] instanceof Integer
+  }
+
+  /* DIRECTIVE disk
+     accepted examples:
+     - "1 GB"
+     - "2TB"
+     - "3.2KB"
+     - "10.B"
+   */
+  if (drctv.containsKey("disk")) {
+    assert drctv["disk"] instanceof String
+    // assert drctv["disk"].matches("[0-9]+(\\.[0-9]*)? *[KMGTPEZY]?B")
+    // ^ does not allow closures
+  }
+
+  /* DIRECTIVE echo
+     accepted examples:
+     - true
+     - false
+   */
+  if (drctv.containsKey("echo")) {
+    assert drctv["echo"] instanceof Boolean
+  }
+
+  /* DIRECTIVE errorStrategy
+     accepted examples:
+     - "terminate"
+     - "finish"
+   */
+  if (drctv.containsKey("errorStrategy")) {
+    assert drctv["errorStrategy"] instanceof String
+    assert drctv["errorStrategy"] in ["terminate", "finish", "ignore", "retry"] : "Unexpected value for errorStrategy"
+  }
+
+  /* DIRECTIVE executor
+     accepted examples:
+     - "local"
+     - "sge"
+   */
+  if (drctv.containsKey("executor")) {
+    assert drctv["executor"] instanceof String
+    assert drctv["executor"] in ["local", "sge", "uge", "lsf", "slurm", "pbs", "pbspro", "moab", "condor", "nqsii", "ignite", "k8s", "awsbatch", "google-pipelines"] : "Unexpected value for executor"
+  }
+
+  /* DIRECTIVE machineType
+     accepted examples:
+     - "n1-highmem-8"
+   */
+  if (drctv.containsKey("machineType")) {
+    assert drctv["machineType"] instanceof String
+  }
+
+  /* DIRECTIVE maxErrors
+     accepted examples:
+     - 1
+     - 3
+   */
+  if (drctv.containsKey("maxErrors")) {
+    assert drctv["maxErrors"] instanceof Integer
+  }
+
+  /* DIRECTIVE maxForks
+     accepted examples:
+     - 1
+     - 3
+   */
+  if (drctv.containsKey("maxForks")) {
+    assert drctv["maxForks"] instanceof Integer
+  }
+
+  /* DIRECTIVE maxRetries
+     accepted examples:
+     - 1
+     - 3
+   */
+  if (drctv.containsKey("maxRetries")) {
+    assert drctv["maxRetries"] instanceof Integer
+  }
+
+  /* DIRECTIVE memory
+     accepted examples:
+     - "1 GB"
+     - "2TB"
+     - "3.2KB"
+     - "10.B"
+   */
+  if (drctv.containsKey("memory")) {
+    assert drctv["memory"] instanceof String
+    // assert drctv["memory"].matches("[0-9]+(\\.[0-9]*)? *[KMGTPEZY]?B")
+    // ^ does not allow closures
+  }
+
+  /* DIRECTIVE module
+     accepted examples:
+     - "ncbi-blast/2.2.27"
+     - "ncbi-blast/2.2.27:t_coffee/10.0"
+     - ["ncbi-blast/2.2.27", "t_coffee/10.0"]
+   */
+  if (drctv.containsKey("module")) {
+    if (drctv["module"] instanceof ArrayList) {
+      drctv["module"] = drctv["module"].join(":")
+    }
+    assert drctv["module"] instanceof String
+  }
+
+  /* DIRECTIVE penv
+     accepted examples:
+     - "smp"
+   */
+  if (drctv.containsKey("penv")) {
+    assert drctv["penv"] instanceof String
+  }
+
+  /* DIRECTIVE pod
+     accepted examples:
+     - [ label: "key", value: "val" ]
+     - [ annotation: "key", value: "val" ]
+     - [ env: "key", value: "val" ]
+     - [ [label: "l", value: "v"], [env: "e", value: "v"]]
+   */
+  if (drctv.containsKey("pod")) {
+    if (drctv["pod"] instanceof HashMap) {
+      drctv["pod"] = [ drctv["pod"] ]
+    }
+    assert drctv["pod"] instanceof ArrayList
+    drctv["pod"].forEach { pod ->
+      assert pod instanceof HashMap
+      // TODO: should more checks be added?
+      // See https://www.nextflow.io/docs/latest/process.html?highlight=directives#pod
+      // e.g. does it contain 'label' and 'value', or 'annotation' and 'value', or ...?
     }
   }
 
@@ -288,10 +449,8 @@ def processDirectives(Map directives) {
       if (elem.containsKey("pattern")) {
         assert elem["pattern"] instanceof String
       }
-        // todo: saveAs doesn't really work atm
-      assert !elem.containsKey("saveAs") : "saveAs is currently not supported. Contact Viash developers if this functionality is desired / required."
       if (elem.containsKey("saveAs")) {
-        assert elem["saveAs"] instanceof Closure
+        assert elem["saveAs"] instanceof String //: "saveAs as a Closure is currently not supported. Surround your closure with single quotes to get the desired effect. Example: '\{ foo \}'"
       }
       if (elem.containsKey("enabled")) {
         assert elem["enabled"] instanceof Boolean
@@ -302,6 +461,96 @@ def processDirectives(Map directives) {
     }
     // store final directive
     drctv["publishDir"] = pblsh
+  }
+
+  /* DIRECTIVE queue
+     accepted examples:
+     - "long"
+     - "short,long"
+     - ["short", "long"]
+   */
+  if (drctv.containsKey("queue")) {
+    if (drctv["queue"] instanceof ArrayList) {
+      drctv["queue"] = drctv["queue"].join(",")
+    }
+    assert drctv["queue"] instanceof String
+  }
+
+  /* DIRECTIVE label
+     accepted examples:
+     - "big_mem"
+     - "big_cpu"
+     - ["big_mem", "big_cpu"]
+   */
+  if (drctv.containsKey("label")) {
+    if (drctv["label"] instanceof String) {
+      drctv["label"] = [ drctv["label"] ]
+    }
+    assert drctv["label"] instanceof ArrayList
+    drctv["label"].forEach { label ->
+      assert label instanceof String
+      // assert label.matches("[a-zA-Z0-9]([a-zA-Z0-9_]*[a-zA-Z0-9])?")
+      // ^ does not allow closures
+    }
+  }
+
+  /* DIRECTIVE scratch
+     accepted examples:
+     - true
+     - "/path/to/scratch"
+     - '$MY_PATH_TO_SCRATCH'
+     - "ram-disk"
+   */
+  if (drctv.containsKey("scratch")) {
+    assert drctv["scratch"] == true || drctv["scratch"] instanceof String
+  }
+
+  /* DIRECTIVE storeDir
+     accepted examples:
+     - "/path/to/storeDir"
+   */
+  if (drctv.containsKey("storeDir")) {
+    assert drctv["storeDir"] instanceof String
+  }
+
+  /* DIRECTIVE stageInMode
+     accepted examples:
+     - "copy"
+     - "link"
+   */
+  if (drctv.containsKey("stageInMode")) {
+    assert drctv["stageInMode"] instanceof String
+    assert drctv["stageInMode"] in ["copy", "link", "symlink", "rellink"]
+  }
+
+  /* DIRECTIVE stageOutMode
+     accepted examples:
+     - "copy"
+     - "link"
+   */
+  if (drctv.containsKey("stageOutMode")) {
+    assert drctv["stageOutMode"] instanceof String
+    assert drctv["stageOutMode"] in ["copy", "move", "rsync"]
+  }
+
+  /* DIRECTIVE tag
+     accepted examples:
+     - "foo"
+     - '$id'
+   */
+  if (drctv.containsKey("tag")) {
+    assert drctv["tag"] instanceof String
+  }
+
+  /* DIRECTIVE time
+     accepted examples:
+     - "1h"
+     - "2days"
+     - "1day 6hours 3minutes 30seconds"
+   */
+  if (drctv.containsKey("time")) {
+    assert drctv["time"] instanceof String
+    // todo: validation regex?
   }
 
   return drctv
@@ -321,7 +570,7 @@ def processProcessArgs(Map args) {
   // check whether directives exists and apply defaults
   assert processArgs.containsKey("directives")
   assert processArgs["directives"] instanceof HashMap
-  processArgs["directives"] = processDirectives(processArgs["directives"])
+  processArgs["directives"] = processDirectives(defaultDirectives + processArgs["directives"])
 
   // todo: process labels
   for (nam in [ "map", "mapId", "mapData" ]) {
@@ -399,20 +648,48 @@ def processFactory(Map processArgs) {
 
   def drctv = processArgs.directives
 
+  // TODO: unit test the two commands below
   // convert publish array into tags
-  def publishStrs = drctv["publishDir"].collect{ elem ->
-    "\npublishDir " + elem.collect{ k, v -> k + ": " + v.inspect() }.join(", ")
+  def valueToStr = { val ->
+    // ignore closures
+    if (val instanceof String) {
+      if (!val.matches('^[{].*[}]$')) {
+        '"' + val + '"'
+      } else {
+        val
+      }
+    } else if (val instanceof List) {
+      "[" + val.collect{valueToStr(it)}.join(", ") + "]"
+    } else if (val instanceof Map) {
+      "[" + val.collect{k, v -> k + ": " + valueToStr(v)}.join(", ") + "]"
+    } else {
+      val.inspect()
+    }
+  }
+  // multiple entries allowed: label, publishdir
+  def drctvStrs = drctv.collect { key, value ->
+    if (key in ["label", "publishDir"]) {
+      value.collect{ val ->
+        if (val instanceof Map) {
+          "\n  $key " + val.collect{ k, v -> k + ": " + valueToStr(v) }.join(", ")
+        } else {
+          "\n  $key " + valueToStr(val)
+        }
+      }.join()
+    } else if (value instanceof Map) {
+      "\n  $key " + value.collect{ k, v -> k + ": " + valueToStr(v) }.join(", ")
+    } else {
+      "\n  $key " + valueToStr(value)
+    }
   }.join()
 
   // generate process string
+  // todo: add all directives
+  // todo: default tag to id
   def procStr = """nextflow.enable.dsl=2
   
-process $procKey {
-  tag "\$id"$publishStrs
-
-  ${drctv.containsKey("echo") ? "echo ${drctv['echo']}" : ""}
-  ${drctv.containsKey("container") ? "container \"${drctv['container']}\"" : ""}
-
+process $procKey {$drctvStrs
+  
   input:
     tuple val(id), path(paths), val(args), val(passthrough)
   output:
