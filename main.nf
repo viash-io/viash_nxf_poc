@@ -4,7 +4,7 @@ include { poc } from "./target/nextflow/poc_new/main.nf" params(params)
 
 tupleOutToTupleIn = { [ input_one: it[1].output_one, input_multi: it[1].output_multi ] }
 
-workflow {
+workflow run_main {
     main:
     input_duplicate = Channel.from([1,2,3])
     input_one = Channel.fromPath("data/pbmc_1k_protein_v3.normalize.output_rna.h5ad")
@@ -16,6 +16,7 @@ workflow {
       | view{ "STEP0: " + it }
       | map{ ["foo" + it[0], [ input_one: it[1], input_multi: it[2], string: it[1].name ], "testpassthrough"] }
       | poc
+      | view{ "STEP0-a: " + it }
       | poc.run(key: "poc1", mapData: tupleOutToTupleIn)
       | poc.run(key: "poc2", mapData: tupleOutToTupleIn)
       | poc.run(
