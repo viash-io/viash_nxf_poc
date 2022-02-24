@@ -22,7 +22,7 @@ workflow run_main {
       | poc
       // | view{ "STEP1: " + it }
       | poc.run(
-          key: "poc1", 
+          key: "poc2", 
           map: { [
             it[0], 
             [ input_one: it[1].output_one, input_multi: it[1].output_multi, string: it[2] ], 
