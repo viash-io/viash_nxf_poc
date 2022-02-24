@@ -83,7 +83,7 @@ fun = [
       'multiple': false,
       'multiple_sep': ':',
       'example': 'output.txt',
-      'default': '$id.$key.output_default.txt',
+      'default': '$id.$key.output_opt.txt',
       'ext': 'txt',
       'description': 'Output optional.'
     ],
@@ -156,21 +156,6 @@ fun = [
   ]
 ]
 
-// default values for the nextflow process
-defaultDirectives = [
-  tag: '$id',
-  echo: false,
-  container: [ registry: null, image: "rocker/tidyverse", tag: "4.0.5" ]
-]
-
-defaultProcessArgs = [
-  key: fun['name'],
-  directives: [:],
-  args: [:],
-  map: { it -> it },
-  mapId: { it -> it[0] },
-  mapData: { it -> it[1] }
-]
 
 def assertMapKeys(map, expectedKeys, requiredKeys, mapName) {
   assert map instanceof HashMap : "Expected publish argument '$elem' to be a String or a HashMap. Found: class ${elem.getClass()}"
@@ -556,10 +541,8 @@ def processDirectives(drctv) {
   return drctv
 }
 
-def processProcessArgs(Map args) {
-  // TODO: add assert messages
-
-  // insert default processArgs if none were specified in args
+def processProcessArgs(Map args, Map defaultProcessArgs, Map defaultDirectives) {
+  // override defaults with args
   def processArgs = defaultProcessArgs + args
 
   // check whether 'key' exists
@@ -568,7 +551,9 @@ def processProcessArgs(Map args) {
   assert processArgs["key"] ==~ /^[a-zA-Z_][a-zA-Z0-9_]*$/
 
   // check whether directives exists and apply defaults
-  assert processArgs.containsKey("directives")
+  if (!processArgs.containsKey("directives")) {
+    processArgs["directives"] = [:]
+  }
   assert processArgs["directives"] instanceof HashMap
   processArgs["directives"] = processDirectives(defaultDirectives + processArgs["directives"])
 
@@ -628,10 +613,17 @@ meta <- list(
 # get resources dir
 resources_dir = "$VIASH_RESOURCES_DIR"
 
+input_one <- readr::read_lines(par\\$input_one)
+input_multi <- unlist(lapply(par\\$input_multi, readr::read_lines))
+
 print(par)
-readr::write_lines("derp", par\\$output_one)
-readr::write_lines("derp", par\\$output_multi)
-readr::write_lines("derp", par\\$output_opt)
+readr::write_lines(c(input_one, par\\$string), par\\$output_one)
+readr::write_lines(c(input_multi, par\\$string), par\\$output_multi)
+
+if (!is.null(par\\$input_opt)) {
+  input_opt <- readr::read_lines(par\\$input_opt)
+  readr::write_lines(c(input_opt, par\\$string), par\\$output_opt)
+}
 VIASHMAIN
 
 Rscript "$tempscript"
@@ -684,8 +676,8 @@ def processFactory(Map processArgs) {
   }.join()
 
   // generate process string
-  // todo: add all directives
-  // todo: default tag to id
+  // todo: generate input/output tuple
+  // todo: generate stub
   def procStr = """nextflow.enable.dsl=2
   
 process $procKey {$drctvStrs
@@ -693,11 +685,13 @@ process $procKey {$drctvStrs
   input:
     tuple val(id), path(paths), val(args), val(passthrough)
   output:
-    tuple val("\$id"), path("\${args.output_one}"), path("\${args.output_multi}"), val(passthrough)
+    // tuple val("\$id"), path("\${args.output_one}"), path("\${args.output_multi}"), val(passthrough)
+    tuple val("\$id"), val(passthrough), path{args.output_one}, path{[".command.sh"] + args.output_multi}, path{[".command.sh", args.output_opt]} optional true
   stub:
     $tripQuo
     touch "\${args.output_one}"
     touch "\${args.output_multi}"
+    touch "\${args.output_opt}"
     $tripQuo
   script:
   def parInject = args.collect{ key, value ->
@@ -735,7 +729,22 @@ $tripQuo
 }
 
 def workflowFactory(Map args) {
-  def processArgs = processProcessArgs(args)
+  // these defaults are defined by the viash config
+  def defaultDirectives = [
+    tag: '$id',
+    container: [ registry: null, image: "rocker/tidyverse", tag: "4.0.5" ]
+  ]
+
+  // these defaults are defined by the viash config
+  def defaultProcessArgs = [
+    key: fun['name'],
+    args: [:]//,
+    // map: { it -> it },
+    // mapId: { it -> it[0] },
+    // mapData: { it -> it[1] }
+  ]
+
+  def processArgs = processProcessArgs(args, defaultProcessArgs, defaultDirectives)
   def processKey = processArgs["key"]
 
   // write process to temporary nf file and parse it in memory
@@ -803,22 +812,56 @@ def workflowFactory(Map args) {
               
             }
 
-          // TODO: check whether required arguments exist
+          // check whether required arguments exist
+          fun.arguments
+            .forEach { par ->
+              if (par.required) {
+                assert combinedArgs2.containsKey(par.name): "Argument ${par.name} is required but does not have a value."
+              }
+            }
+
           // TODO: check whether parameters have the right type
 
-          def paths = [ combinedArgs2.input_one, combinedArgs2.input_multi ]
+          def inputPaths = fun.arguments
+            .findAll { it.type == "file" && it.direction.toLowerCase() == "input" && combinedArgs2.containsKey(it.name) }
+            .collectMany{ par ->
+              if (combinedArgs2[par.name] instanceof List) {
+                combinedArgs2[par.name]
+              } else {
+                [ combinedArgs2[par.name] ]
+              }
+            }
+            .find{ it.exists() }
           
-          [ id, paths, combinedArgs2, elem.drop(2) ]
+          [ id, inputPaths, combinedArgs2, elem.drop(2) ]
         }
         // | view{ ["middle", it]}
         | processObj
         | map { output ->
-          
-          def out = [ output[0], [ output_one: output[1], output_multi: output[2] ] ]
+
+          // TODO: process using fun.
+
+          def outputFiles = fun.arguments
+            .findAll { it.type == "file" && it.direction.toLowerCase() == "output" }
+            .indexed()
+            .collectEntries{ index, par ->
+              out = output[index + 2]
+              if (par.required && !par.multiple) {
+                [ par.name, out ]
+              } else if (out instanceof List && out.size() > 2) {
+                [ par.name, out.drop(1) ]
+              } else if (out instanceof List && out.size() == 2) {
+                [ par.name, out[1] ]
+              } else {
+                [ par.name, null ]
+              }
+            }
+
+          def out = [ output[0], outputFiles ]
 
           // passthrough additional items
-          if (output[3]) {
-            out.addAll(output[3])
+          if (output[1]) {
+            out.addAll(output[1])
           }
 
           out
@@ -841,4 +884,3 @@ poc.metaClass.run = { args ->
 
 // add workflow to environment
 ScriptMeta.current().addDefinition(poc)
-
