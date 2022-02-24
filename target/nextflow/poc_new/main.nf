@@ -884,3 +884,12 @@ poc.metaClass.run = { args ->
 
 // add workflow to environment
 ScriptMeta.current().addDefinition(poc)
+
+// Implicit workflow for running this module standalone
+// Remark: Input argument validation should be performed above, not here.
+workflow {
+  Channel.from(1)
+    | map{ [ "1", file(params.input_one), file(params.input_two), params.string ] }
+    | map{ ["foo" + it[0], [ input_one: it[1], input_multi: it[2], string: it[1].name ], "testpassthrough"] }
+    | poc
+}
