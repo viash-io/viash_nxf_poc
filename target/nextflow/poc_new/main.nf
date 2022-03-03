@@ -678,11 +678,17 @@ def processFactory(Map processArgs) {
   // generate process string
   // todo: generate input/output tuple
   // todo: generate stub
+  // todo: do we need to fetch the ':' from fun for VIASH_PAR generation?
+  // todo: generate the parinject outside the process?
+  // todo: generate the stub outside the process?
   def procStr = """nextflow.enable.dsl=2
   
 process $procKey {$drctvStrs
   
   input:
+    // TODO: can filename clashes be resolved while still preserving extensions?
+    // tuple val(id), path(paths, filePattern: "file*.ext"), val(args), val(passthrough)
+    // tuple val(id), path("\${this.binding.variables.each {k,v -> println "\$k = \$v"}}*.txt"), val(args), val(passthrough)
     tuple val(id), path(paths), val(args), val(passthrough)
   output:
     // tuple val("\$id"), path("\${args.output_one}"), path("\${args.output_multi}"), val(passthrough)
@@ -695,9 +701,12 @@ process $procKey {$drctvStrs
     $tripQuo
   script:
   def parInject = args.collect{ key, value ->
-    "export VIASH_PAR_\${key.toUpperCase()}=\\\"\$value\\\""
+    if (value instanceof Collection) {
+      "export VIASH_PAR_\${key.toUpperCase()}=\\\"\${value.join(":")}\\\""
+    } else {
+      "export VIASH_PAR_\${key.toUpperCase()}=\\\"\$value\\\""
+    }
   }.join("\\n")
-
 $tripQuo
 # TO DO: VIASH_TEMP // needs to be mounted
 # TO DO: VIASH_RESOURCES_DIR // needs to be mounted
@@ -705,7 +714,6 @@ $tripQuo
 export VIASH_RESOURCES_DIR="${resourcesDir}"
 export VIASH_TEMP="./"
 export VIASH_META_FUNCTIONALITY_NAME="${fun["name"]}"
-
 \$parInject
 
 ${scriptFactory()}
@@ -822,23 +830,66 @@ def workflowFactory(Map args) {
 
           // TODO: check whether parameters have the right type
 
+          // check for filename clashes
+          // TODO: see processFactory -- can filePattern be used?
+          // TODO: can this be solved without a temporary directory??
+          def fileNames = combinedArgs2.collectMany { name, val ->
+            if (!val) {
+              []
+            } else if (val instanceof Collection) {
+              val.collect{ it.getName() }
+            } else if (val instanceof Path) {
+              [ val.getName() ]
+            } else {
+              []
+            }
+          }
+          if (fileNames.unique(false).size() != fileNames.size()) {
+            print("Detected input filename clashes, creating tempdir with symlinks")
+            // create tempdir, add symlinks to input files
+            tmpdir = java.nio.file.Files.createTempDirectory("nxf_clash_linking")
+            // addShutdownHook {
+            //   tmpdir.deleteDir()
+            // }
+            //printAllMethods(tmpdir)
+            combinedArgs2 = combinedArgs2.collectEntries { name, val ->
+              if (val && val instanceof List) {
+                files_with_index = [1..val.size(), val].transpose()
+                val_new = files_with_index.collect { index, file_i ->
+                  dest = tmpdir.resolve(file_i.getBaseName() + ".clash_" + name + "_" + index + "." + file_i.getExtension())
+                  file_i.mklink(dest)
+                }
+              } else if (val && val instanceof Path) {
+                dest = tmpdir.resolve(val.getBaseName() + ".clash_" + name + "." + val.getExtension())
+                val_new = val.mklink(dest)
+              } else {
+                val_new = val
+              }
+              [ name, val_new ]
+            }
+          }
+
           def inputPaths = fun.arguments
             .findAll { it.type == "file" && it.direction.toLowerCase() == "input" && combinedArgs2.containsKey(it.name) }
             .collectMany{ par ->
-              if (combinedArgs2[par.name] instanceof List) {
-                combinedArgs2[par.name]
+              val = combinedArgs2[par.name]
+              if (!val) {
+                []
+              } else if (val instanceof AbstractList) {
+                val
+              } else if (val instanceof Path) {
+                [ val ]
               } else {
-                [ combinedArgs2[par.name] ]
+                []
               }
             }
-            .find{ it.exists() }
+            .findAll{ it.exists() }
           
           [ id, inputPaths, combinedArgs2, elem.drop(2) ]
         }
         // | view{ ["middle", it]}
         | processObj
         | map { output ->
-
           // TODO: process using fun.
 
           def outputFiles = fun.arguments

@@ -6,21 +6,14 @@ tupleOutToTupleIn = { [ input_one: it[1].output_one, input_multi: it[1].output_m
 
 workflow run_main {
     main:
-    input_duplicate = Channel.from([1,2,3])
-    input_one = Channel.fromPath("run.sh")
-    input_multi = Channel.fromPath(".gitignore")
-    input_opt = Channel.fromPath("README.md")
-
     // TODO: test multiple inputs and outputs
 
-    output_ = input_duplicate
-      | combine(input_one)
-      | combine(input_multi)
-      | combine(input_opt)
-      // | view{ "STEP0: " + it }
-      | map{ ["foo" + it[0], [ input_one: it[1], input_multi: it[2], input_opt: it[3], string: "step 1" ], "step 2"] } // put step2 in passthrough
+    output_ = Channel.value(
+        [ "foo", [ input_one: file("run.sh"), input_multi: [ file("README.md"), file("run.sh") ], input_opt: file("main.nf"), string: "step 1" ], "step2"] // put step2 in passthrough
+      )
+      | view{ "STEP0: " + it }
       | poc
-      // | view{ "STEP1: " + it }
+      | view{ "STEP1: " + it }
       | poc.run(
           key: "poc2", 
           map: { [
@@ -29,7 +22,7 @@ workflow run_main {
             it[1].output_opt
           ] } // put passthrough in string arg, put output_opt in passthrough
         )
-      // | view{ "STEP2: " + it }
+      | view{ "STEP2: " + it }
       | poc.run(
           key: "poc3",
           directives: [
