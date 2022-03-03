@@ -9,7 +9,16 @@ workflow run_main {
     // TODO: test multiple inputs and outputs
 
     output_ = Channel.value(
-        [ "foo", [ input_one: file("run.sh"), input_multi: [ file("README.md"), file("run.sh") ], input_opt: file("main.nf"), string: "step 1" ], "step2"] // put step2 in passthrough
+        [ 
+          "foo", // id
+          [  // data
+            input_one: file("run.sh"), 
+            input_multi: [ file("README.md"), file("run.sh") ], 
+            input_opt: file("main.nf"), 
+            string: "step 1" 
+          ],
+          "step2" // passthrough
+        ] 
       )
       | view{ "STEP0: " + it }
       | poc
