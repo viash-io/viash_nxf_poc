@@ -951,7 +951,9 @@ ScriptMeta.current().addDefinition(poc)
 
 // Implicit workflow for running this module standalone
 workflow {
+  params.id = "id"
   params.publishDir = "./"
+
   // fetch parameters
   def args = fun.arguments
     .findAll { params.containsKey(it.name) }
@@ -963,9 +965,11 @@ workflow {
       }
     }
           
-  Channel.value([ "input", args ])
+  Channel.value([ params.id, args ])
+    | view { "input: $it" }
     | poc.run(
         key: "poc_run",
         directives: [publishDir: params.publishDir]
       )
+    | view { "output: $it" }
 }
