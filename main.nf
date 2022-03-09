@@ -45,7 +45,9 @@ workflow run_main {
             label: ["foo", "bar"],
             memory: "{ id == 'foo1' ? '10GB' : '5GB' }" // test workaround for closures
           ],
-          map: { [ it[0], [ input_one: it[1].output_one, input_multi: it[1].output_multi, input_opt: it[2] ] ] }, // include passthrough in data tuple again
+          // include passthrough in data tuple again
+          // remove input_multi
+          map: { [ it[0], [ input_one: it[1].output_one, input_multi: [], input_opt: it[2] ] ] },
           args: [ string: "step 3", integer: 456, "double": 0.456 ]
         )
       | view{ "STEP3: " + it }

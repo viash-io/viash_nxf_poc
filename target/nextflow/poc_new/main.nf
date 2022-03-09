@@ -954,6 +954,10 @@ workflow {
   params.id = "id"
   params.publishDir = "./"
 
+  if (params.containsKey("help") && params[["help"]]) {
+    exit 0, "pipeline docs"
+  }
+
   // fetch parameters
   def args = fun.arguments
     .findAll { params.containsKey(it.name) }
