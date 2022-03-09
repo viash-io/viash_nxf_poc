@@ -691,8 +691,9 @@ process $procKey {$drctvStrs
     // tuple val(id), path("\${this.binding.variables.each {k,v -> println "\$k = \$v"}}*.txt"), val(args), val(passthrough)
     tuple val(id), path(paths), val(args), val(passthrough)
   output:
-    // tuple val("\$id"), path("\${args.output_one}"), path("\${args.output_multi}"), val(passthrough)
-    tuple val("\$id"), val(passthrough), path{args.output_one}, path{[".command.sh"] + args.output_multi}, path{[".command.sh", args.output_opt]} optional true
+    // tuple val("\$id"), val(passthrough), path(args.output_one), path(args.output_multi, optional: true), path(args.output_opt, optional: true)
+    //tuple val("\$id"), val(passthrough), path("\${args.output_one}"), path("\${args.output_multi}"), path("\${args.output_opt}", optional: true)
+    tuple val("\$id"), val(passthrough), path("\${args.output_one}"), path("\${args.output_multi}", optional: true), path("\${args.output_opt}", optional: true)
   stub:
     $tripQuo
     touch "\${args.output_one}"
@@ -721,6 +722,22 @@ ${scriptFactory()}
 $tripQuo
 }
 """
+
+
+// # if [ ! -f ".viash_args_size.txt" ]; then
+// #   viash_args_size=2 # 1 + required output files
+// #   if [[ -f "${args.output_opt}" ]; then
+// #   fi
+// #   if [[ -f "${args.output_multi}" ]; then
+// #   fi
+// # 
+// #   echo \$viash_args_size > .viash_args_size.txt
+// # fi
+
+// # output some metadata regarding run of component
+// # cat > .viash_exec.json << HERE
+// # 
+// # HERE
 
   File file = new File("test_writefile.nf")
   // File file = File.createTempFile("process_${procKey}_",".tmp.nf")
@@ -824,7 +841,7 @@ def workflowFactory(Map args) {
           fun.arguments
             .forEach { par ->
               if (par.required) {
-                assert combinedArgs2.containsKey(par.name): "Argument ${par.name} is required but does not have a value."
+                assert combinedArgs2.containsKey(par.name): "Argument ${par.name} is required but does not have a value"
               }
             }
 
@@ -848,6 +865,7 @@ def workflowFactory(Map args) {
             print("Detected input filename clashes, creating tempdir with symlinks")
             // create tempdir, add symlinks to input files
             tmpdir = java.nio.file.Files.createTempDirectory("nxf_clash_linking")
+            // print("tmpdir: $tmpdir")
             // addShutdownHook {
             //   tmpdir.deleteDir()
             // }
@@ -897,15 +915,10 @@ def workflowFactory(Map args) {
             .indexed()
             .collectEntries{ index, par ->
               out = output[index + 2]
-              if (par.required && !par.multiple) {
-                [ par.name, out ]
-              } else if (out instanceof List && out.size() > 2) {
-                [ par.name, out.drop(1) ]
-              } else if (out instanceof List && out.size() == 2) {
-                [ par.name, out[1] ]
-              } else {
-                [ par.name, null ]
+              if (out instanceof List && out.size() <= 1) {
+                out = out[0] // out will become null if out is []
               }
+              [ par.name, out ]
             }
 
           def out = [ output[0], outputFiles ]
@@ -937,10 +950,22 @@ poc.metaClass.run = { args ->
 ScriptMeta.current().addDefinition(poc)
 
 // Implicit workflow for running this module standalone
-// Remark: Input argument validation should be performed above, not here.
 workflow {
-  Channel.from(1)
-    | map{ [ "1", file(params.input_one), file(params.input_two), params.string ] }
-    | map{ ["foo" + it[0], [ input_one: it[1], input_multi: it[2], string: it[1].name ], "testpassthrough"] }
-    | poc
+  params.publishDir = "./"
+  // fetch parameters
+  def args = fun.arguments
+    .findAll { params.containsKey(it.name) }
+    .collectEntries { par ->
+      if (par.type == "file" && par.direction.toLowerCase() == "input") {
+        [ par.name, file(params[par.name]) ]
+      } else {
+        [ par.name, params[par.name] ]
+      }
+    }
+          
+  Channel.value([ "input", args ])
+    | poc.run(
+        key: "poc_run",
+        directives: [publishDir: params.publishDir]
+      )
 }
