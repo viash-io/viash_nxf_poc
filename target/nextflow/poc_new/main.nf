@@ -12,8 +12,12 @@ import java.nio.file.Paths
 metaThis = ScriptMeta.current()
 resourcesDir = metaThis.getScriptPath().getParent()
 
-temp_dir = Paths.get(
-  System.getenv('NXF_TEMP') ?: System.getenv('VIASH_TEMP') ?: System.getenv('TEMPDIR') ?: System.getenv('TMPDIR') ?: '/tmp'
+tempDir = Paths.get(
+  System.getenv('NXF_TEMP') ?:
+    System.getenv('VIASH_TEMP') ?: 
+    System.getenv('TEMPDIR') ?: 
+    System.getenv('TMPDIR') ?: 
+    '/tmp'
 )
 
 
@@ -714,7 +718,7 @@ $tripQuo
 }
 """
 
-  File file = Files.createTempFile(dir = temp_dir, prefix = "process_${procKey}_", suffix = ".tmp.nf").toFile()
+  File file = Files.createTempFile(dir = tempDir, prefix = "process_${procKey}_", suffix = ".tmp.nf").toFile()
   file.write procStr
 
   def meta = ScriptMeta.current()
@@ -839,7 +843,7 @@ def workflowFactory(Map args) {
           if (fileNames.unique(false).size() != fileNames.size()) {
             print("Detected input filename clashes, creating tempdir with symlinks")
             // create tempdir, add symlinks to input files
-            tmpdir = Files.createTempDirectory(dir = temp_dir, prefix = "nxf_clash_linking")
+            tmpdir = Files.createTempDirectory(dir = tempDir, prefix = "nxf_clash_linking")
             // print("tmpdir: $tmpdir")
             // addShutdownHook {
             //   tmpdir.deleteDir()
@@ -866,7 +870,7 @@ def workflowFactory(Map args) {
           def meta = [
             'resources_dir' : resourcesDir,
             'functionality_name': fun['name'],
-            'temp_dir': temp_dir
+            'temp_dir': tempDir
           ]
 
           // find all paths
