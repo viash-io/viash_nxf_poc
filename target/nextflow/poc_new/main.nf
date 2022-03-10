@@ -909,7 +909,7 @@ def workflowFactory(Map args) {
             }
           }
 
-          def before_script = """
+          def beforeScript = """
 ${metaVariables.join("\n")}
 # synonyms
 export VIASH_RESOURCES_DIR="\$VIASH_META_RESOURCES_DIR"
@@ -917,11 +917,11 @@ export VIASH_TEMP="\$VIASH_META_TEMP_DIR"
 export TEMP_DIR="\$VIASH_META_TEMP_DIR"
 ${parVariables.join("\n")}
 """
-          def after_script = ""
+          def afterScript = ""
           
           def inject = [
-            "before_script": before_script,
-            "after_script": after_script
+            "before_script": beforeScript,
+            "after_script": afterScript
           ]
 
           [ id, inputPaths, procArgs, inject, elem.drop(2) ]
