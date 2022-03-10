@@ -1,12 +1,21 @@
 nextflow.enable.dsl=2
 
+// TODO: add some documentation on how this file was created and how to use it.
+
 import nextflow.script.IncludeDef
 import nextflow.script.ScriptBinding
 import nextflow.script.ScriptMeta
+import java.nio.file.Files
+import java.nio.file.Paths
 
 // look for some global variables
 metaThis = ScriptMeta.current()
 resourcesDir = metaThis.getScriptPath().getParent()
+
+temp_dir = Paths.get(
+  System.getenv('NXF_TEMP') ?: System.getenv('VIASH_TEMP') ?: System.getenv('TEMPDIR') ?: System.getenv('TMPDIR') ?: '/tmp'
+)
+
 
 // replace $ with {} or %%
 fun = [
@@ -607,7 +616,7 @@ par <- list(
 # get meta parameters
 meta <- list(
   functionality_name = "$VIASH_META_FUNCTIONALITY_NAME",
-  resources_dir = "$VIASH_RESOURCES_DIR"
+  resources_dir = "$VIASH_META_RESOURCES_DIR"
 )
 
 # get resources dir
@@ -687,12 +696,8 @@ process $procKey {$drctvStrs
   
   input:
     // TODO: can filename clashes be resolved while still preserving extensions?
-    // tuple val(id), path(paths, filePattern: "file*.ext"), val(args), val(passthrough)
-    // tuple val(id), path("\${this.binding.variables.each {k,v -> println "\$k = \$v"}}*.txt"), val(args), val(passthrough)
-    tuple val(id), path(paths), val(args), val(passthrough)
+    tuple val(id), path(paths), val(args), val(inject), val(passthrough)
   output:
-    // tuple val("\$id"), val(passthrough), path(args.output_one), path(args.output_multi, optional: true), path(args.output_opt, optional: true)
-    //tuple val("\$id"), val(passthrough), path("\${args.output_one}"), path("\${args.output_multi}"), path("\${args.output_opt}", optional: true)
     tuple val("\$id"), val(passthrough), path("\${args.output_one}"), path("\${args.output_multi}", optional: true), path("\${args.output_opt}", optional: true)
   stub:
     $tripQuo
@@ -701,46 +706,15 @@ process $procKey {$drctvStrs
     touch "\${args.output_opt}"
     $tripQuo
   script:
-  def parInject = args.collect{ key, value ->
-    if (value instanceof Collection) {
-      "export VIASH_PAR_\${key.toUpperCase()}=\\\"\${value.join(":")}\\\""
-    } else {
-      "export VIASH_PAR_\${key.toUpperCase()}=\\\"\$value\\\""
-    }
-  }.join("\\n")
 $tripQuo
-# TO DO: VIASH_TEMP // needs to be mounted
-# TO DO: VIASH_RESOURCES_DIR // needs to be mounted
-# TO DO: optional args
-export VIASH_RESOURCES_DIR="${resourcesDir}"
-export VIASH_TEMP="./"
-export VIASH_META_FUNCTIONALITY_NAME="${fun["name"]}"
-\$parInject
-
+\${inject["before_script"]}
 ${scriptFactory()}
-
+\${inject["after_script"]}
 $tripQuo
 }
 """
 
-
-// # if [ ! -f ".viash_args_size.txt" ]; then
-// #   viash_args_size=2 # 1 + required output files
-// #   if [[ -f "${args.output_opt}" ]; then
-// #   fi
-// #   if [[ -f "${args.output_multi}" ]; then
-// #   fi
-// # 
-// #   echo \$viash_args_size > .viash_args_size.txt
-// # fi
-
-// # output some metadata regarding run of component
-// # cat > .viash_exec.json << HERE
-// # 
-// # HERE
-
-  File file = new File("test_writefile.nf")
-  // File file = File.createTempFile("process_${procKey}_",".tmp.nf")
+  File file = Files.createTempFile(dir = temp_dir, prefix = "process_${procKey}_", suffix = ".tmp.nf").toFile()
   file.write procStr
 
   def meta = ScriptMeta.current()
@@ -824,7 +798,7 @@ def workflowFactory(Map args) {
           // combine params
           def combinedArgs = defaultArgs + paramArgs + processArgs.args + dataArgs
 
-          def combinedArgs2 = fun.arguments
+          def procArgs = fun.arguments
             .findAll { combinedArgs.containsKey(it.name) }
             .collectEntries { par ->
               def parVal = combinedArgs[par.name]
@@ -841,7 +815,7 @@ def workflowFactory(Map args) {
           fun.arguments
             .forEach { par ->
               if (par.required) {
-                assert combinedArgs2.containsKey(par.name): "Argument ${par.name} is required but does not have a value"
+                assert procArgs.containsKey(par.name): "Argument ${par.name} is required but does not have a value"
               }
             }
 
@@ -850,7 +824,8 @@ def workflowFactory(Map args) {
           // check for filename clashes
           // TODO: see processFactory -- can filePattern be used?
           // TODO: can this be solved without a temporary directory??
-          def fileNames = combinedArgs2.collectMany { name, val ->
+          /*
+          def fileNames = procArgs.collectMany { name, val ->
             if (!val) {
               []
             } else if (val instanceof Collection) {
@@ -864,13 +839,13 @@ def workflowFactory(Map args) {
           if (fileNames.unique(false).size() != fileNames.size()) {
             print("Detected input filename clashes, creating tempdir with symlinks")
             // create tempdir, add symlinks to input files
-            tmpdir = java.nio.file.Files.createTempDirectory("nxf_clash_linking")
+            tmpdir = Files.createTempDirectory(dir = temp_dir, prefix = "nxf_clash_linking")
             // print("tmpdir: $tmpdir")
             // addShutdownHook {
             //   tmpdir.deleteDir()
             // }
             //printAllMethods(tmpdir)
-            combinedArgs2 = combinedArgs2.collectEntries { name, val ->
+            procArgs = procArgs.collectEntries { name, val ->
               if (val && val instanceof List) {
                 files_with_index = [1..val.size(), val].transpose()
                 val_new = files_with_index.collect { index, file_i ->
@@ -886,14 +861,25 @@ def workflowFactory(Map args) {
               [ name, val_new ]
             }
           }
+          */
 
-          def inputPaths = fun.arguments
-            .findAll { it.type == "file" && it.direction.toLowerCase() == "input" && combinedArgs2.containsKey(it.name) }
-            .collectMany{ par ->
-              val = combinedArgs2[par.name]
-              if (!val) {
+          def meta = [
+            'resources_dir' : resourcesDir,
+            'functionality_name': fun['name'],
+            'temp_dir': temp_dir
+          ]
+
+          // find all paths
+          def inputPathsFromArgs = fun.arguments
+            .findAll { it.type == "file" && it.direction.toLowerCase() == "input" && procArgs.containsKey(it.name) }
+            .collect { procArgs[it.name] }
+          def inputPathsFromMeta = meta
+
+          def inputPaths = (inputPathsFromArgs + inputPathsFromMeta)
+            .collectMany{ val ->
+              if (val == null) {
                 []
-              } else if (val instanceof AbstractList) {
+              } else if (val instanceof List) {
                 val
               } else if (val instanceof Path) {
                 [ val ]
@@ -902,10 +888,40 @@ def workflowFactory(Map args) {
               }
             }
             .findAll{ it.exists() }
+
+          // construct header
+          def parVariables = procArgs.collect{ key, value ->
+            if (value instanceof Collection) {
+              "export VIASH_PAR_${key.toUpperCase()}=\"${value.join(":")}\""
+            } else {
+              "export VIASH_PAR_${key.toUpperCase()}=\"$value\""
+            }
+          }
+          def metaVariables = meta.collect{ key, value ->
+            if (value instanceof Collection) {
+              "export VIASH_META_${key.toUpperCase()}=\"${value.join(":")}\""
+            } else {
+              "export VIASH_META_${key.toUpperCase()}=\"$value\""
+            }
+          }
+
+          def before_script = """
+${metaVariables.join("\n")}
+# synonyms
+export VIASH_RESOURCES_DIR="\$VIASH_META_RESOURCES_DIR"
+export VIASH_TEMP="\$VIASH_META_TEMP_DIR"
+export TEMP_DIR="\$VIASH_META_TEMP_DIR"
+${parVariables.join("\n")}
+"""
+          def after_script = ""
           
-          [ id, inputPaths, combinedArgs2, elem.drop(2) ]
+          def inject = [
+            "before_script": before_script,
+            "after_script": after_script
+          ]
+
+          [ id, inputPaths, procArgs, inject, elem.drop(2) ]
         }
-        // | view{ ["middle", it]}
         | processObj
         | map { output ->
           // TODO: process using fun.
