@@ -704,11 +704,9 @@ process $procKey {$drctvStrs
   output:
     tuple val("\$id"), val(passthrough), path("\${args.output_one}"), path("\${args.output_multi}", optional: true), path("\${args.output_opt}", optional: true)
   stub:
-    $tripQuo
-    touch "\${args.output_one}"
-    touch "\${args.output_multi}"
-    touch "\${args.output_opt}"
-    $tripQuo
+$tripQuo
+\${inject["stub"]}
+$tripQuo
   script:
 $tripQuo
 \${inject["before_script"]}
@@ -893,7 +891,7 @@ def workflowFactory(Map args) {
             }
             .findAll{ it.exists() }
 
-          // construct header
+          // construct injects
           def parVariables = procArgs.collect{ key, value ->
             if (value instanceof Collection) {
               "export VIASH_PAR_${key.toUpperCase()}=\"${value.join(":")}\""
@@ -918,8 +916,14 @@ export TEMP_DIR="\$VIASH_META_TEMP_DIR"
 ${parVariables.join("\n")}
 """
           def afterScript = ""
+
+          def stub = fun.arguments
+            .findAll { it.type == "file" && it.direction.toLowerCase() == "output" }
+            .collect { "touch \"\${args.${it.name}}\"" }
+            .join("\n")
           
           def inject = [
+            "stub": stub,
             "before_script": beforeScript,
             "after_script": afterScript
           ]
