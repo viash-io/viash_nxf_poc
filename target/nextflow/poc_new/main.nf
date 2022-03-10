@@ -824,6 +824,7 @@ def workflowFactory(Map args) {
           // TODO: check whether parameters have the right type
 
           // check for filename clashes
+          // TODO: copy to separate function
           // TODO: see processFactory -- can filePattern be used?
           // TODO: can this be solved without a temporary directory??
           /*
@@ -892,6 +893,7 @@ def workflowFactory(Map args) {
             .findAll{ it.exists() }
 
           // construct injects
+          // TODO: copy to separate function
           def parVariables = procArgs.collect{ key, value ->
             if (value instanceof Collection) {
               "export VIASH_PAR_${key.toUpperCase()}=\"${value.join(":")}\""
@@ -919,7 +921,7 @@ ${parVariables.join("\n")}
 
           def stub = fun.arguments
             .findAll { it.type == "file" && it.direction.toLowerCase() == "output" }
-            .collect { "touch \"\${args.${it.name}}\"" }
+            .collect { "touch \"${procArgs[it.name]}\"" }
             .join("\n")
           
           def inject = [
@@ -932,8 +934,6 @@ ${parVariables.join("\n")}
         }
         | processObj
         | map { output ->
-          // TODO: process using fun.
-
           def outputFiles = fun.arguments
             .findAll { it.type == "file" && it.direction.toLowerCase() == "output" }
             .indexed()
