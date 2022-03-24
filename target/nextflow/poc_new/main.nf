@@ -571,7 +571,7 @@ def processProcessArgs(Map args, Map defaultProcessArgs, Map defaultDirectives) 
   processArgs["directives"] = processDirectives(defaultDirectives + processArgs["directives"])
 
   for (nam in [ "map", "mapId", "mapData" ]) {
-    if (processArgs.containsKey(nam)) {
+    if (processArgs.containsKey(nam) && processArgs[nam]) {
       assert processArgs[nam] instanceof Closure : "Expected process argument '$nam' to be null or a Closure. Found: class ${processArgs[nam].getClass()}"
     }
   }
@@ -751,12 +751,12 @@ def workflowFactory(Map args) {
   def defaultProcessArgs = [
     key: fun['name'],
     args: [:],
-    simplifyInput: false, // todo: implement
-    simplifyOutput: false // todo: implement
-    // map: { it -> it },
-    // mapId: { it -> it[0] },
-    // mapData: { it -> it[1] }
-    // renameKeys: [ "new": "old" ]
+    simplifyInput: false,
+    simplifyOutput: false,
+    map: null, // { it -> it }
+    mapId: null, // { it -> it[0] }
+    mapData: null, // { it -> it[1] }
+    renameKeys: null // [ "new": "old" ]
   ]
 
   def processArgs = processProcessArgs(args, defaultProcessArgs, defaultDirectives)
