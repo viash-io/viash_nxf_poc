@@ -1,5 +1,11 @@
 functionality:
   name: poc
+  description: |
+    This is a multiline description
+  authors:
+    - name: Foo Bar
+      email: foo@bar.com
+      roles: maintainer
   arguments:
     # INPUTS
     - name: "--input_one"
@@ -57,7 +63,7 @@ functionality:
       type: double
       description: "Doubles"
       multiple: true
-      default: "5.5:4.5"
+      default: [ 5.5, 4.5 ]
     - name: "--flag_true"
       type: boolean_true
       description: "Flag true"
@@ -82,6 +88,7 @@ platforms:
   - type: native
   - type: nextflow
     publish: true
+  - type: nextflowpoc
     # directives:
     #  cpus: 10
     #  publishDir: "foo/bar"
