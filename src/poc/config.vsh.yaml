@@ -31,7 +31,7 @@ functionality:
       direction: output
     - name: "--output_multi"
       type: file
-      required: true
+      required: false
       multiple: true
       example: "output.txt"
       description: Output multiple.

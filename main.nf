@@ -4,6 +4,8 @@ include { poc } from "./target/nextflow/poc_new/main.nf" params(params)
 
 tupleOutToTupleIn = { [ input_one: it[1].output_one, input_multi: it[1].output_multi ] }
 
+// TODO: add check for nxf version for opt & multiple outputs
+
 workflow run_main {
     main:
     // TODO: test multiple inputs and outputs
@@ -13,8 +15,9 @@ workflow run_main {
           "foo", // id
           [  // data
             input_one: file("run.sh"), 
-            // input_multi: [ file("README.md"), file("run.sh") ], 
-            input_multi: [ file("README.md") ], 
+            input_multi: [ file("README.md"), file("run.sh") ], 
+            // input_multi: [ file("README.md"), file("utils.nf") ],
+            // input_multi: [ file("README.md") ], 
             input_opt: file("main.nf"), 
             string: "step 1" 
           ],

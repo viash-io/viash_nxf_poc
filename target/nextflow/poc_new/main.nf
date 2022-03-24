@@ -18,7 +18,7 @@ tempDir = Paths.get(
     System.getenv('TEMPDIR') ?: 
     System.getenv('TMPDIR') ?: 
     '/tmp'
-)
+).toAbsolutePath()
 
 
 // replace $ with {} or %%
@@ -77,13 +77,13 @@ fun = [
     [
       'name': 'output_multi',
       'otype': '--',
-      'required': true,
+      'required': false,
       'type': 'file',
       'direction': 'Output',
       'multiple': true,
       'multiple_sep': ':',
       'example': 'output.txt',
-      'default': '$id.$key.output_multi.txt',
+      'default': '$id.$key.output_multi_*.txt',
       'ext': 'txt',
       'description': 'Output multiple.'
     ],
@@ -570,7 +570,6 @@ def processProcessArgs(Map args, Map defaultProcessArgs, Map defaultDirectives) 
   assert processArgs["directives"] instanceof HashMap
   processArgs["directives"] = processDirectives(defaultDirectives + processArgs["directives"])
 
-  // todo: process labels
   for (nam in [ "map", "mapId", "mapData" ]) {
     if (processArgs.containsKey(nam)) {
       assert processArgs[nam] instanceof Closure : "Expected process argument '$nam' to be null or a Closure. Found: class ${processArgs[nam].getClass()}"
@@ -627,11 +626,22 @@ meta <- list(
 resources_dir = "$VIASH_RESOURCES_DIR"
 
 input_one <- readr::read_lines(par\\$input_one)
-input_multi <- unlist(lapply(par\\$input_multi, readr::read_lines))
+input_multi <- lapply(par\\$input_multi, readr::read_lines)
 
 print(par)
+
 readr::write_lines(c(input_one, par\\$string), par\\$output_one)
-readr::write_lines(c(input_multi, par\\$string), par\\$output_multi)
+
+for (i in seq_along(input_multi)) {
+  if (length(par\\$output_multi) == 1 && grepl("\\\\\\\\*", par\\$output_multi)) {
+    path <- gsub("\\\\\\\\*", i, par\\$output_multi)
+  } else if (length(par\\$output_multi) == length(input_multi)) {
+    path <- par\\$output_multi[[i]]
+  } else {
+    stop("Unexpected output_multi format.")
+  }
+  readr::write_lines(c(input_multi[[i]], par\\$string), path)
+}
 
 if (!is.null(par\\$input_opt)) {
   input_opt <- readr::read_lines(par\\$input_opt)
@@ -649,8 +659,6 @@ def processFactory(Map processArgs) {
   def procKey = processArgs["key"] + "_process"
 
   // subset directives and convert to list of tuples
-  // todo: extend directive list
-
   def drctv = processArgs.directives
 
   // TODO: unit test the two commands below
@@ -688,21 +696,23 @@ def processFactory(Map processArgs) {
     }
   }.join()
 
+  def outputPaths = fun.arguments
+    .findAll { it.type == "file" && it.direction.toLowerCase() == "output" }
+    .collect { par ->
+      ', path("${args.' + par.name + '}"' + (par.required ? "" : ", optional: true") + ')'
+    }
+    .join()
+
   // generate process string
-  // todo: generate input/output tuple
-  // todo: generate stub
-  // todo: do we need to fetch the ':' from fun for VIASH_PAR generation?
-  // todo: generate the parinject outside the process?
-  // todo: generate the stub outside the process?
   def procStr = """nextflow.enable.dsl=2
   
 process $procKey {$drctvStrs
   
   input:
-    // TODO: can filename clashes be resolved while still preserving extensions?
     tuple val(id), path(paths), val(args), val(inject), val(passthrough)
   output:
-    tuple val("\$id"), val(passthrough), path("\${args.output_one}"), path("\${args.output_multi}", optional: true), path("\${args.output_opt}", optional: true)
+    // tuple val("\$id"), val(passthrough), path("\${args.output_one}"), path("\${args.output_multi}", optional: true), path("\${args.output_opt}", optional: true)
+    tuple val("\$id"), val(passthrough)$outputPaths
   stub:
 $tripQuo
 \${inject["stub"]}
@@ -716,6 +726,7 @@ $tripQuo
 }
 """
 
+  // TODO: clean up tempdir after run?
   File file = Files.createTempFile(dir = tempDir, prefix = "process_${procKey}_", suffix = ".tmp.nf").toFile()
   file.write procStr
 
@@ -739,10 +750,13 @@ def workflowFactory(Map args) {
   // these defaults are defined by the viash config
   def defaultProcessArgs = [
     key: fun['name'],
-    args: [:]//,
+    args: [:],
+    simplifyInput: false, // todo: implement
+    simplifyOutput: false // todo: implement
     // map: { it -> it },
     // mapId: { it -> it[0] },
     // mapData: { it -> it[1] }
+    // renameKeys: [ "new": "old" ]
   ]
 
   def processArgs = processProcessArgs(args, defaultProcessArgs, defaultDirectives)
@@ -758,29 +772,99 @@ def workflowFactory(Map args) {
 
     main:
     output_= input_
-        | map{ elem ->
+        | map{ tuple ->
           // TODO: add debug option to see what goes in and out of the workflow
+          // if (params.debug) {
+          //   println("Process '$processKey' input: $tuple")
+          // }
+
           if (processArgs.map) {
-            elem = processArgs.map(elem)
+            tuple = processArgs.map(tuple)
           }
           if (processArgs.mapId) {
-            elem[0] = processArgs.mapId(elem)
+            tuple[0] = processArgs.mapId(tuple)
           }
           if (processArgs.mapData) {
-            elem[1] = processArgs.mapData(elem)
+            tuple[1] = processArgs.mapData(tuple)
           }
+
+          // check tuple
+          assert tuple instanceof AbstractList : 
+            "Error in process '${processKey}': element in channel should be a tuple [id, data, ...otherargs...]\n" +
+            "  Example: [\"id\", [input: file('foo.txt'), arg: 10]].\n" +
+            "  Expected class: List. Found: tuple.getClass() is ${tuple.getClass()}"
+          assert tuple.size() >= 2 : 
+            "Error in process '${processKey}': expected length of tuple in input channel to be two or greater.\n" +
+            "  Example: [\"id\", [input: file('foo.txt'), arg: 10]].\n" +
+            "  Found: tuple.size() == ${tuple.size()}"
           
-          assert elem instanceof AbstractList : "Error in process '${processKey}': element in channel should be a tuple [id, parameters, ...otherargs...\nExample of expected input: [\"id\", [input: file('foo.txt'), arg: 10]]. Found: elem.getClass() is ${elem.getClass()}"
-          assert elem.size() >= 2 : "Error in process '${processKey}': expected length of element in input channel to be two or greater.\nExpected: elem.size() >= 2. Found: elem.size() == ${elem.size()}"
-          assert elem[0] instanceof String : "Error in process '${processKey}': element in channel should be a tuple [id, parameters, ...otherargs...\nExample of expected input: [\"id\", [input: file('foo.txt'), arg: 10]]. Found: ${elem}"
-          assert elem[1] instanceof HashMap | elem[1] instanceof Path : ""
-          if (elem[1] instanceof Path) {
-            // assert ...
+          // check id field
+          assert tuple[0] instanceof String : 
+            "Error in process '${processKey}': first element of tuple in channel should be a String\n" +
+            "  Example: [\"id\", [input: file('foo.txt'), arg: 10]].\n" +
+            "  Found: ${tuple[0]}"
+          
+          // match file to input file
+          if (processArgs.simplifyInput && tuple[1] instanceof Path) {
+            def inputFiles = fun.arguments
+              .findAll { it.type == "file" && it.direction.toLowerCase() == "input" }
+            
+            assert inputFiles.size() == 1 : 
+                "Error in process '${processKey}' id '${tuple[0]}'.\n" +
+                "  Anonymous file inputs are only allowed when the process has exactly one file input.\n" +
+                "  Expected: inputFiles.size() == 1. Found: inputFiles.size() is ${inputFiles.size()}"
+
+            tuple[1] = [[ inputFiles[0].name, tuple[1] ]].collectEntries()
           }
-          // assert elem[0] instanceof String : "Error in process '${processKey}': element in channel should be a tuple [id, parameters, ...otherargs...\nExample of expected input: [\"id\", [input: file('foo.txt'), arg: 10]]. Found: ${elem}"
-          // TODO: add checks on id_input_obj to see if it is in the right format
-          def id = elem[0]
-          def data = elem[1]
+
+          // check data field
+          assert tuple[1] instanceof HashMap : 
+            "Error in process '${processKey}' id '${tuple[0]}': second element of tuple in channel should be a HashMap\n" +
+            "  Example: [\"id\", [input: file('foo.txt'), arg: 10]].\n" +
+            "  Expected class: HashMap. Found: tuple[1].getClass() is ${tuple[1].getClass()}"
+
+          // rename keys of data field in tuple
+          if (processArgs.renameKeys) {
+            assert processArgs.renameKeys instanceof HashMap : 
+                "Error renaming data keys in process '${processKey}' id '${tuple[0]}'.\n" +
+                "  Example: renameKeys: ['new_key': 'old_key'].\n" +
+                "  Expected class: HashMap. Found: renameKeys.getClass() is ${processArgs.renameKeys.getClass()}"
+            assert tuple[1] instanceof HashMap : 
+                "Error renaming data keys in process '${processKey}' id '${tuple[0]}'.\n" +
+                "  Expected class: HashMap. Found: tuple[1].getClass() is ${tuple[1].getClass()}"
+
+            processArgs.renameKeys.each { newKey, oldKey ->
+              assert newKey instanceof String : 
+                "Error renaming data keys in process '${processKey}' id '${tuple[0]}'.\n" +
+                "  Example: renameKeys: ['new_key': 'old_key'].\n" +
+                "  Expected class of newKey: String. Found: newKey.getClass() is ${newKey.getClass()}"
+              assert oldKey instanceof String : 
+                "Error renaming data keys in process '${processKey}' id '${tuple[0]}'.\n" +
+                "  Example: renameKeys: ['new_key': 'old_key'].\n" +
+                "  Expected class of oldKey: String. Found: oldKey.getClass() is ${oldKey.getClass()}"
+              assert tuple[1].containsKey(oldKey) : 
+                "Error renaming data keys in process '${processKey}' id '${tuple[0]}'.\n" +
+                "  Key '$oldKey' is missing in the data map. tuple[1].keySet() is '${tuple[1].keySet()}'"
+              tuple[1].put(newKey, tuple[1][oldKey])
+            }
+            tuple[1].removeAll(processArgs.renameKeys.collect{ newKey, oldKey -> oldKey })
+          }
+
+          /*
+          // rename map with wrong name
+          if (processArgs.simplifyInput) {
+            def inputFiles = fun.arguments
+              .findAll { it.type == "file" && it.direction.toLowerCase() == "input" }
+            def foundFiles = tuple[1].findAll{k, v -> v instanceof Path}.collect{k, v -> k}
+            if (inputFiles.size() == 1 && foundFiles.size() == 1) {
+              // if (params.debug) println("process '${processKey}' id '${tuple[0]}' - Renaming key '${foundFiles[0]}' to '${inputFiles[0].name}'.")
+              tuple[1].put(inputFiles[0].name, tuple[1].remove(foundFiles[0]))
+            }
+          }
+          */
+          
+          def id = tuple[0]
+          def data = tuple[1]
 
           // fetch default params from functionality
           def defaultArgs = fun.arguments.findAll{ it.default }.collectEntries {
@@ -824,10 +908,6 @@ def workflowFactory(Map args) {
           // TODO: check whether parameters have the right type
 
           // check for filename clashes
-          // TODO: copy to separate function
-          // TODO: see processFactory -- can filePattern be used?
-          // TODO: can this be solved without a temporary directory??
-          /*
           def fileNames = procArgs.collectMany { name, val ->
             if (!val) {
               []
@@ -839,11 +919,15 @@ def workflowFactory(Map args) {
               []
             }
           }
+          // resolve filename clashes if need be
           if (fileNames.unique(false).size() != fileNames.size()) {
-            print("Detected input filename clashes, creating tempdir with symlinks")
+            print("WARNING: Detected input filename clashes. Resolving by creating temporary directory with symlinks.")
             // create tempdir, add symlinks to input files
             tmpdir = Files.createTempDirectory(dir = tempDir, prefix = "nxf_clash_linking")
-            // print("tmpdir: $tmpdir")
+            // TODO: make tmpdir absolute
+            // TODO: Remove temp directory after use
+            // the following doesn't work:
+            print("tmpdir: $tmpdir")
             // addShutdownHook {
             //   tmpdir.deleteDir()
             // }
@@ -855,16 +939,19 @@ def workflowFactory(Map args) {
                   dest = tmpdir.resolve(file_i.getBaseName() + ".clash_" + name + "_" + index + "." + file_i.getExtension())
                   file_i.mklink(dest)
                 }
+                
+                print("  Renamed $name: $val to $val_new")
               } else if (val && val instanceof Path) {
                 dest = tmpdir.resolve(val.getBaseName() + ".clash_" + name + "." + val.getExtension())
                 val_new = val.mklink(dest)
+
+                print("  Renamed $name: $val to $val_new")
               } else {
                 val_new = val
               }
               [ name, val_new ]
             }
           }
-          */
 
           def meta = [
             'resources_dir' : resourcesDir,
@@ -893,7 +980,6 @@ def workflowFactory(Map args) {
             .findAll{ it.exists() }
 
           // construct injects
-          // TODO: copy to separate function
           def parVariables = procArgs.collect{ key, value ->
             if (value instanceof Collection) {
               "export VIASH_PAR_${key.toUpperCase()}=\"${value.join(":")}\""
@@ -930,7 +1016,7 @@ ${parVariables.join("\n")}
             "after_script": afterScript
           ]
 
-          [ id, inputPaths, procArgs, inject, elem.drop(2) ]
+          [ id, inputPaths, procArgs, inject, tuple.drop(2) ]
         }
         | processObj
         | map { output ->
@@ -944,6 +1030,10 @@ ${parVariables.join("\n")}
               }
               [ par.name, out ]
             }
+
+          if (processArgs.simplifyOutput && outputFiles.size() == 1) {
+            outputFiles = outputFiles.values()[0]
+          }
 
           def out = [ output[0], outputFiles ]
 
