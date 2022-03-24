@@ -53,10 +53,11 @@ functionality:
       type: integer
       description: "Integer"
       default: 10
-    - name: "--double"
+    - name: "--doubles"
       type: double
-      description: "Double"
-      default: 5.5
+      description: "Doubles"
+      multiple: true
+      default: "5.5:4.5"
     - name: "--flag_true"
       type: boolean_true
       description: "Flag true"

@@ -119,19 +119,19 @@ fun = [
       'direction': 'Input',
       'multiple': false,
       'multiple_sep': ':',
-      'default': '10',
+      'default': 10,
       'description': 'Integer'
     ],
     [
-      'name': 'double',
+      'name': 'doubles',
       'otype': '--',
       'required': false,
       'type': 'double',
       'direction': 'Input',
-      'multiple': false,
+      'multiple': true,
       'multiple_sep': ':',
-      'default': '5.5',
-      'description': 'Double'
+      'default': [5.5, 3.5],
+      'description': 'Doubles'
     ],
     [
       'name': 'flag_true',
@@ -141,7 +141,7 @@ fun = [
       'direction': 'Input',
       'multiple': false,
       'multiple_sep': ':',
-      'default': 'false',
+      'default': false,
       'description': 'Flag true'
     ],
     [
@@ -152,7 +152,7 @@ fun = [
       'direction': 'Input',
       'multiple': false,
       'multiple_sep': ':',
-      'default': 'true',
+      'default': true,
       'description': 'Flag false'
     ],
     [
@@ -163,7 +163,7 @@ fun = [
       'direction': 'Input',
       'multiple': false,
       'multiple_sep': ':',
-      'default': 'true',
+      'default': true,
       'description': 'Boolean'
     ]
   ]
@@ -610,7 +610,7 @@ par <- list(
   "output_opt" = $( if [ ! -z ${VIASH_PAR_OUTPUT_OPT+x} ]; then echo "'$VIASH_PAR_OUTPUT_OPT'"; else echo NULL; fi ),
   "string" = $( if [ ! -z ${VIASH_PAR_STRING+x} ]; then echo "'$VIASH_PAR_STRING'"; else echo NULL; fi ),
   "integer" = $( if [ ! -z ${VIASH_PAR_INTEGER+x} ]; then echo "as.integer($VIASH_PAR_INTEGER)"; else echo NULL; fi ),
-  "double" = $( if [ ! -z ${VIASH_PAR_DOUBLE+x} ]; then echo "as.numeric($VIASH_PAR_DOUBLE)"; else echo NULL; fi ),
+  "doubles" = $( if [ ! -z ${VIASH_PAR_DOUBLES+x} ]; then echo "as.numeric(strsplit('$VIASH_PAR_DOUBLES', split = ':')[[1]])"; else echo NULL; fi ),
   "flag_true" = $( if [ ! -z ${VIASH_PAR_FLAG_TRUE+x} ]; then echo "as.logical(toupper('$VIASH_PAR_FLAG_TRUE'))"; else echo NULL; fi ),
   "flag_false" = $( if [ ! -z ${VIASH_PAR_FLAG_FALSE+x} ]; then echo "as.logical(toupper('$VIASH_PAR_FLAG_FALSE'))"; else echo NULL; fi ),
   "boolean" = $( if [ ! -z ${VIASH_PAR_BOOLEAN+x} ]; then echo "as.logical(toupper('$VIASH_PAR_BOOLEAN'))"; else echo NULL; fi )
@@ -911,8 +911,8 @@ def workflowFactory(Map args) {
           def fileNames = procArgs.collectMany { name, val ->
             if (!val) {
               []
-            } else if (val instanceof Collection) {
-              val.collect{ it.getName() }
+            } else if (val instanceof List) {
+              val.collectMany{ it instanceof Path ? [ it.getName() ] : [] }
             } else if (val instanceof Path) {
               [ val.getName() ]
             } else {
@@ -936,19 +936,20 @@ def workflowFactory(Map args) {
               if (val && val instanceof List) {
                 files_with_index = [1..val.size(), val].transpose()
                 val_new = files_with_index.collect { index, file_i ->
-                  dest = tmpdir.resolve(file_i.getBaseName() + ".clash_" + name + "_" + index + "." + file_i.getExtension())
-                  file_i.mklink(dest)
+                  if (file_i instanceof Path) {
+                    dest = tmpdir.resolve(file_i.getBaseName() + ".clash_" + name + "_" + index + "." + file_i.getExtension())
+                    file_i.mklink(dest)
+                  } else {
+                    file_i
+                  }
                 }
-                
-                print("  Renamed $name: $val to $val_new")
               } else if (val && val instanceof Path) {
                 dest = tmpdir.resolve(val.getBaseName() + ".clash_" + name + "." + val.getExtension())
                 val_new = val.mklink(dest)
-
-                print("  Renamed $name: $val to $val_new")
               } else {
                 val_new = val
               }
+              if (val != val_new) print("  Renamed $name: $val to $val_new")
               [ name, val_new ]
             }
           }

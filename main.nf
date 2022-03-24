@@ -16,8 +16,6 @@ workflow run_main {
           [  // data
             input_one: file("run.sh"), 
             input_multi: [ file("README.md"), file("run.sh") ], 
-            // input_multi: [ file("README.md"), file("utils.nf") ],
-            // input_multi: [ file("README.md") ], 
             input_opt: file("main.nf"), 
             string: "step 1" 
           ],
@@ -52,7 +50,7 @@ workflow run_main {
           // include passthrough in data tuple again
           // remove input_multi
           map: { [ it[0], [ input_one: it[1].output_one, input_multi: [], input_opt: it[2] ] ] },
-          args: [ string: "step 3", integer: 456, "double": 0.456 ]
+          args: [ string: "step 3", integer: 456, "doubles": [0.456, .123] ]
         )
       | view{ "STEP3: " + it }
     emit: output_
