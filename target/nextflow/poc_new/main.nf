@@ -8,7 +8,7 @@ import nextflow.script.ScriptMeta
 import java.nio.file.Files
 import java.nio.file.Paths
 
-// look for some global variables
+// Define some global variables
 metaThis = ScriptMeta.current()
 resourcesDir = metaThis.getScriptPath().getParent()
 
@@ -20,8 +20,8 @@ tempDir = Paths.get(
     '/tmp'
 ).toAbsolutePath()
 
-
-// replace $ with {} or %%
+// functionality metadata
+// TODO: replace $ with {} or %%
 fun = [
   'name': 'poc',
   'arguments': [
