@@ -9,6 +9,14 @@ unset NXF_VER
 # use custom build of nextflow
 bin/nextflow run main.nf -entry run_main --publishDir output/
 
+# bin/nextflow \
+#   run https://github.com/viash-io/viash_nxf_poc.git \
+#   -r main \
+#   -main-script main.nf \
+#   -entry run_main \
+#   --publishDir output/ \
+#   -resume
+
 # bin/nextflow run main.nf -entry run_main --publishDir output_stub/ -stub
 
 # bin/nextflow run target/nextflow/poc_new/main.nf \

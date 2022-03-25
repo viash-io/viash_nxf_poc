@@ -1,6 +1,7 @@
 nextflow.enable.dsl=2
 
-include { poc } from "./target/nextflow/poc_new/main.nf" params(params)
+// include { poc } from "./target/nextflow/poc_new/main.nf" params(params)
+include { poc } from "./target/nextflowpoc/poc/main.nf" params(params)
 
 tupleOutToTupleIn = { [ input_one: it[1].output_one, input_multi: it[1].output_multi ] }
 

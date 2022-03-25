@@ -78,10 +78,28 @@ functionality:
     - type: r_script
       dest: script.R
       text: |
+        input_one <- readr::read_lines(par$input_one)
+        input_multi <- lapply(par$input_multi, readr::read_lines)
+
         print(par)
-        readr::write_lines("derp", par$output_one)
-        readr::write_lines("derp", par$output_multi)
-        readr::write_lines("derp", par$output_opt)
+
+        readr::write_lines(c(input_one, par$string), par$output_one)
+
+        for (i in seq_along(input_multi)) {
+          if (length(par$output_multi) == 1 && grepl("\\*", par$output_multi)) {
+            path <- gsub("\\*", i, par$output_multi)
+          } else if (length(par$output_multi) == length(input_multi)) {
+            path <- par$output_multi[[i]]
+          } else {
+            stop("Unexpected output_multi format.")
+          }
+          readr::write_lines(c(input_multi[[i]], par$string), path)
+        }
+
+        if (!is.null(par$input_opt)) {
+          input_opt <- readr::read_lines(par$input_opt)
+          readr::write_lines(c(input_opt, par$string), par$output_opt)
+        }
 platforms:
   - type: docker
     image: rocker/tidyverse:4.0.5
@@ -89,6 +107,5 @@ platforms:
   - type: nextflow
     publish: true
   - type: nextflowpoc
-    # directives:
-    #  cpus: 10
-    #  publishDir: "foo/bar"
+    directives:
+      container: "rocker/tidyverse:4.0.5" # need to manually define container for now
