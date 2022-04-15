@@ -15,7 +15,8 @@ workflow run_main {
         [ 
           "foo", // id
           [  // data
-            input_one: file("run.sh"), 
+            // input_one: file("run.sh"), 
+            input_one: file("nextflow.config"),
             input_multi: [ file("README.md"), file("run.sh") ], 
             input_opt: file("main.nf"), 
             string: "step 1" 

@@ -78,10 +78,12 @@ functionality:
     - type: r_script
       dest: script.R
       text: |
+        print(par)
+
+        print('""" test """')
+
         input_one <- readr::read_lines(par$input_one)
         input_multi <- lapply(par$input_multi, readr::read_lines)
-
-        print(par)
 
         readr::write_lines(c(input_one, par$string), par$output_one)
 
@@ -109,3 +111,4 @@ platforms:
   - type: nextflowpoc
     directives:
       container: "rocker/tidyverse:4.0.5" # need to manually define container for now
+      cache: lenient

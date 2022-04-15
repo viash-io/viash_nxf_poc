@@ -1,15 +1,11 @@
 #!/bin/bash
 
-# export NXF_VER=21.10.6
-# nextflow run main.nf -entry run_main --publishDir output/ #-resume
-
+export NXF_VER=21.10.6
 export NXF_TEMP=tmp 
+nextflow run main.nf -entry run_main --publishDir output/ -resume
 
-unset NXF_VER
-# use custom build of nextflow
-bin/nextflow run main.nf -entry run_main --publishDir output/
 
-# bin/nextflow \
+# nextflow \
 #   run https://github.com/viash-io/viash_nxf_poc.git \
 #   -r main \
 #   -main-script main.nf \
@@ -17,9 +13,9 @@ bin/nextflow run main.nf -entry run_main --publishDir output/
 #   --publishDir output/ \
 #   -resume
 
-# bin/nextflow run main.nf -entry run_main --publishDir output_stub/ -stub
+# nextflow run main.nf -entry run_main --publishDir output_stub/ -stub
 
-# bin/nextflow run target/nextflow/poc_new/main.nf \
-#   --input_one main.nf \
-#   --input_multi '.nextflow.log.*' \
-#   --publishDir output/
+nextflow run target/nextflowpoc/poc/main.nf \
+  --input_one main.nf \
+  --input_multi '.nextflow.log.*' \
+  --publishDir output/

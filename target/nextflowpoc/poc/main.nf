@@ -145,8 +145,7 @@ thisFunctionality = [
 
 thisHelpMessage = "foo"    // TODO: fill in by functionality
 
-thisScript = '''
-set -e
+thisScript = '''set -e
 tempscript=".viash_script.sh"
 cat > "$tempscript" << VIASHMAIN
 ## VIASH START
@@ -180,6 +179,8 @@ resources_dir = "$VIASH_META_RESOURCES_DIR"
 ## VIASH END
 print(par)
 
+print('""" test """')
+
 input_one <- readr::read_lines(par\\$input_one)
 input_multi <- lapply(par\\$input_multi, readr::read_lines)
 
@@ -202,12 +203,13 @@ if (!is.null(par\\$input_opt)) {
 }
 VIASHMAIN
 Rscript "$tempscript"
-'''.replace('\\', '\\\\').replace('$', '\\$')
+'''
 
 thisDefaultDirectives = jsonSlurper.parseText("""{
   "accelerator" : {
     
   },
+  "cache" : "lenient",
   "conda" : [
   ],
   "container" : "rocker/tidyverse:4.0.5",
@@ -226,11 +228,13 @@ thisDefaultDirectives = jsonSlurper.parseText("""{
 }""")
 
 thisDefaultProcessArgs = [
+  // key to be used to trace the process and determine output names
   key: thisFunctionality.name,
+  // fixed arguments to be passed to script
   args: [:],
   // whether or not to accept [id, Path, ...] inputs instead of [id, [input: Path], ...]
   simplifyInput: false,
-  // if output is a single file, will output [id, Path, ...] instead of [id, [output: Path], ...]
+  // if output is a single file, will simplify output to [id, Path, ...] instead of [id, [output: Path], ...]
   simplifyOutput: false,
   // identity operator: { it -> it }
   map: null,
@@ -762,6 +766,9 @@ def processFactory(Map processArgs) {
     }
     .join("\n")
 
+  // escape script
+  def escapedScript = thisScript.replace('\\', '\\\\').replace('$', '\\$').replace('"""', '\\"\\"\\"')
+
   // generate process string
   def procStr = 
   """nextflow.enable.dsl=2
@@ -776,9 +783,10 @@ def processFactory(Map processArgs) {
   |$stub
   |$tripQuo
   |script:
-  |def parInject = args.collect{ key, value ->
-  |  "export VIASH_PAR_\${key.toUpperCase()}=\\\"\$value\\\""
-  |}.join("\\n")
+  |def parInject = args
+  |  .findAll{key, value -> value}
+  |  .collect{key, value -> "export VIASH_PAR_\${key.toUpperCase()}=\\\"\$value\\\""}
+  |  .join("\\n")
   |$tripQuo
   |# meta exports
   |${metaVariables.join("\n")}
@@ -792,7 +800,8 @@ def processFactory(Map processArgs) {
   |# argument exports${inputFileExports.join()}
   |\$parInject
   |
-  |# process script${thisScript}
+  |# process script
+  |${escapedScript}
   |$tripQuo
   |}
   |""".stripMargin()
@@ -937,6 +946,10 @@ def workflowFactory(Map args) {
           // combine params
           def combinedArgs = defaultArgs + paramArgs + processArgs.args + dataArgs
 
+          // remove arguments with explicit null values
+          combinedArgs.removeAll{it == null}
+
+
           // check whether required arguments exist
           thisFunctionality.arguments
             .forEach { par ->
@@ -989,14 +1002,25 @@ def workflowFactory(Map args) {
               out = output[index + 2]
               // strip dummy '.exitcode' file from output (see nextflow-io/nextflow#2678)
               if (!out instanceof List || out.size() <= 1) {
-                out = null
-              } else if (out.size() == 2) {
+                if (par.multiple) {
+                  out = []
+                } else {
+                  assert !par.required :
+                      "Error in process '${processKey}' id '${output[0]}' argument '${par.name}'.\n" +
+                      "  Required output file is missing"
+                  out = null
+                }
+              } else if (out.size() == 2 && !par.multiple) {
                 out = out[1]
               } else {
                 out = out.drop(1)
               }
               [ par.name, out ]
             }
+          
+          // drop null outputs
+          outputFiles.removeAll{it.value == null}
+          // outputFiles = outputFiles.collect().findAll{it.value != null}.collectEntries()
 
           if (processArgs.simplifyOutput && outputFiles.size() == 1) {
             outputFiles = outputFiles.values()[0]
