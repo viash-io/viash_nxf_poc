@@ -15,10 +15,12 @@
 
 nextflow.enable.dsl=2
 
-
+// Required imports
 import groovy.json.JsonSlurper
-def jsonSlurper = new JsonSlurper()
+// import groovy.json.JsonOutput
 
+// initialise slurper
+def jsonSlurper = new JsonSlurper()
 
 // DEFINE CUSTOM CODE
 
@@ -233,9 +235,9 @@ thisDefaultProcessArgs = [
   // fixed arguments to be passed to script
   args: [:],
   // whether or not to accept [id, Path, ...] inputs instead of [id, [input: Path], ...]
-  simplifyInput: false,
+  simplifyInput: true,
   // if output is a single file, will simplify output to [id, Path, ...] instead of [id, [output: Path], ...]
-  simplifyOutput: false,
+  simplifyOutput: true,
   // identity operator: { it -> it }
   map: null,
   // identity operator: { it -> it[0] }
@@ -243,7 +245,9 @@ thisDefaultProcessArgs = [
   // identity operator: { it -> it[1] }
   mapData: null,
   // usage: [ "new_key": "old_key" ]
-  renameKeys: null
+  renameKeys: null,
+  // whether or not to print debug messages
+  debug: false
 ]
 
 // END CUSTOM CODE
@@ -755,7 +759,7 @@ def processFactory(Map processArgs) {
 
   // construct metaFiles
   def metaVariables = metaFiles.keySet().withIndex().collect { key, index ->
-    "export VIASH_META_${key.toUpperCase()}=\"\${meta[$index]}\""
+    "export VIASH_META_${key.toUpperCase()}=\"\${escapeText(meta[$index])}\""
   }
 
   // construct stub
@@ -783,9 +787,10 @@ def processFactory(Map processArgs) {
   |$stub
   |$tripQuo
   |script:
+  |def escapeText = { s -> s.toString().replaceAll('([`"])', '\\\\\\\\\$1') }
   |def parInject = args
   |  .findAll{key, value -> value}
-  |  .collect{key, value -> "export VIASH_PAR_\${key.toUpperCase()}=\\\"\$value\\\""}
+  |  .collect{key, value -> "export VIASH_PAR_\${key.toUpperCase()}=\\\"\${escapeText(value)}\\\""}
   |  .join("\\n")
   |$tripQuo
   |# meta exports
@@ -827,6 +832,29 @@ def workflowFactory(Map args) {
   // write process to temporary nf file and parse it in memory
   def processObj = processFactory(processArgs)
 
+  def printFlush = { msg ->
+    if (processArgs.debug) {
+      print(msg)
+      System.out.flush()
+      System.err.flush()
+    }
+  }
+  def printTuple = { key, tuple ->
+    if (processArgs.debug) {
+      // TODO: fix
+      // print("  $key:\n${JsonOutput.prettyPrint(JsonOutput.toJson(tuple))}")
+      // js = JsonOutput.toJson(tuple)
+      // pjs = JsonOutput.prettyPrint(js)
+      print("  $key: $tuple")
+      System.out.flush()
+      System.err.flush()
+    }
+  }
+
+  if (processArgs.debug) {
+    printFlush("Debugging process $processKey")
+  }
+
   workflow pocInstance {
     take:
     input_
@@ -834,20 +862,23 @@ def workflowFactory(Map args) {
     main:
     output_= input_
         | map{ tuple ->
-          // TODO: add debug option to see what goes in and out of the workflow
-          // if (params.debug) {
-          //   println("Process '$processKey' input: $tuple")
-          // }
+          printTuple("process '$processKey' input tuple", tuple)
 
           if (processArgs.map) {
             tuple = processArgs.map(tuple)
           }
           if (processArgs.mapId) {
             tuple[0] = processArgs.mapId(tuple)
+            // TODO: alternative
+            // tuple[0] = processArgs.mapId(tuple[0])
           }
           if (processArgs.mapData) {
             tuple[1] = processArgs.mapData(tuple)
+            // TODO: alternative
+            // tuple[1] = processArgs.mapData(tuple[1])
           }
+          // TODO: implement?
+          // if (processArgs.mapPassthrough)
 
           // check tuple
           assert tuple instanceof AbstractList : 
@@ -894,6 +925,7 @@ def workflowFactory(Map args) {
                 "Error renaming data keys in process '${processKey}' id '${tuple[0]}'.\n" +
                 "  Expected class: HashMap. Found: tuple[1].getClass() is ${tuple[1].getClass()}"
 
+            // TODO: allow renameKeys to be a function?
             processArgs.renameKeys.each { newKey, oldKey ->
               assert newKey instanceof String : 
                 "Error renaming data keys in process '${processKey}' id '${tuple[0]}'.\n" +
@@ -911,18 +943,7 @@ def workflowFactory(Map args) {
             tuple[1].keySet().removeAll(processArgs.renameKeys.collect{ newKey, oldKey -> oldKey })
           }
 
-          /*
-          // rename map with wrong name
-          if (processArgs.simplifyInput) {
-            def inputFiles = thisFunctionality.arguments
-              .findAll { it.type == "file" && it.direction == "input" }
-            def foundFiles = tuple[1].findAll{k, v -> v instanceof Path}.collect{k, v -> k}
-            if (inputFiles.size() == 1 && foundFiles.size() == 1) {
-              // if (params.debug) println("process '${processKey}' id '${tuple[0]}' - Renaming key '${foundFiles[0]}' to '${inputFiles[0].name}'.")
-              tuple[1].put(inputFiles[0].name, tuple[1].remove(foundFiles[0]))
-            }
-          }
-          */
+          printTuple("process '$processKey' processed tuple", tuple)
           
           def id = tuple[0]
           def data = tuple[1]
@@ -948,7 +969,6 @@ def workflowFactory(Map args) {
 
           // remove arguments with explicit null values
           combinedArgs.removeAll{it == null}
-
 
           // check whether required arguments exist
           thisFunctionality.arguments
@@ -1020,7 +1040,6 @@ def workflowFactory(Map args) {
           
           // drop null outputs
           outputFiles.removeAll{it.value == null}
-          // outputFiles = outputFiles.collect().findAll{it.value != null}.collectEntries()
 
           if (processArgs.simplifyOutput && outputFiles.size() == 1) {
             outputFiles = outputFiles.values()[0]
@@ -1032,6 +1051,8 @@ def workflowFactory(Map args) {
           if (output[1]) {
             out.addAll(output[1])
           }
+
+          printTuple("process '$processKey' output tuple", out)
 
           out
         }
@@ -1055,17 +1076,19 @@ ScriptMeta.current().addDefinition(poc)
 
 // Implicit workflow for running this module standalone
 workflow {
-  params.id = "run"
-  params.publishDir = "./"
-
-  // TODO: add help message
-  if (params.containsKey("help") && params[["help"]]) {
+  if (params.containsKey("help") && params["help"]) {
     exit 0, thisHelpMessage
+  }
+  if (!params.containsKey("id")) {
+    params.id = "run"
+  }
+  if (!params.containsKey("publishDir")) {
+    params.publishDir = "./"
   }
 
   // fetch parameters
   def args = thisFunctionality.arguments
-    .findAll { params.containsKey(it.name) }
+    .findAll { par -> params.containsKey(par.name) }
     .collectEntries { par ->
       if (par.type == "file" && par.direction == "input") {
         [ par.name, file(params[par.name]) ]
