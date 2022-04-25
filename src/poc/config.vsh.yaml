@@ -108,7 +108,9 @@ platforms:
   - type: native
   - type: nextflow
     publish: true
-  - type: nextflowpoc
+  - type: nextflow
+    id: nextflowpoc
+    variant: neo
     directives:
       container: "rocker/tidyverse:4.0.5" # need to manually define container for now
       cache: lenient
