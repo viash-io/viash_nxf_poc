@@ -6,8 +6,7 @@ export NXF_TEMP=tmp
 nextflow run main.nf \
   -entry run_main \
   --publishDir output/ \
-  -resume \
-  -dump-hashes
+  -resume  #-dump-hashes
 
 
 # nextflow \
