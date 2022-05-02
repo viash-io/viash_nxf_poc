@@ -29,9 +29,9 @@ workflow run_main {
       | poc.run(
           args: [ integer: 10 ],
           directives: [
-            publishDir: "output/",
             label: ["highmem", "highcpu"]
-          ]
+          ],
+          // auto: [ publish: true, transcript: true ]
         )
       | view{ "STEP1: $it"}
       | poc.run(
@@ -40,16 +40,17 @@ workflow run_main {
             it[0], 
             [ input_one: it[1].output_one, input_multi: it[1].output_multi, string: it[2] ], 
             it[1].output_opt
-          ] } // put passthrough in string arg, put output_opt in passthrough
+          ] }, // put passthrough in string arg, put output_opt in passthrough
+          auto: [ publish: true ]
         )
       | view{ "STEP2: " + it }
       | poc.run(
           key: "poc3",
           directives: [
             publishDir: [
-              [ path: "output/", pattern: "*output_one*", mode: "copy", enabled: true, saveAs: "{ it + '.derp' }" ], // test closure workaround for saveas
-              [ path: "output/", pattern: "*output_multi*", mode: "copy", enabled: true ],
-              [ path: "output/", pattern: "*output_opt*", mode: "copy", enabled: true ] 
+              [ path: "output/manual/", pattern: "*output_one*", mode: "copy", enabled: true, saveAs: "{ it + '.derp' }" ], // test closure workaround for saveas
+              [ path: "output/manual/", pattern: "*output_multi*", mode: "copy", enabled: true ],
+              [ path: "output/manual/", pattern: "*output_opt*", mode: "copy", enabled: true ] 
             ],
             cache: true,
             executor: "local",

@@ -114,3 +114,5 @@ platforms:
     directives:
       container: "rocker/tidyverse:4.0.5" # need to manually define container for now
       cache: lenient
+    auto: 
+      transcript: true

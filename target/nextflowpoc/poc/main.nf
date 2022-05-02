@@ -287,7 +287,7 @@ thisDefaultProcessArgs = [
   auto: jsonSlurper.parseText("""{
   "simplifyInput" : true,
   "simplifyOutput" : true,
-  "transcript" : false,
+  "transcript" : true,
   "publish" : false
 }"""),
   // apply a map over the incoming tuple
@@ -311,6 +311,7 @@ thisDefaultProcessArgs = [
 
 // END CUSTOM CODE
 
+import nextflow.Nextflow
 import nextflow.script.IncludeDef
 import nextflow.script.ScriptBinding
 import nextflow.script.ScriptMeta
@@ -347,7 +348,7 @@ def processDirectives(Map drctv) {
     - "source /cluster/bin/cleanup"
   */
   if (drctv.containsKey("afterScript")) {
-    assert drctv["afterScript"] instanceof String
+    assert drctv["afterScript"] instanceof CharSequence
   }
 
   /* DIRECTIVE beforeScript
@@ -355,7 +356,7 @@ def processDirectives(Map drctv) {
     - "source /cluster/bin/setup"
   */
   if (drctv.containsKey("beforeScript")) {
-    assert drctv["beforeScript"] instanceof String
+    assert drctv["beforeScript"] instanceof CharSequence
   }
 
   /* DIRECTIVE cache
@@ -366,8 +367,8 @@ def processDirectives(Map drctv) {
     - "lenient"
   */
   if (drctv.containsKey("cache")) {
-    assert drctv["cache"] instanceof String || drctv["cache"] instanceof Boolean
-    if (drctv["cache"] instanceof String) {
+    assert drctv["cache"] instanceof CharSequence || drctv["cache"] instanceof Boolean
+    if (drctv["cache"] instanceof CharSequence) {
       assert drctv["cache"] in ["deep", "lenient"] : "Unexpected value for cache"
     }
   }
@@ -382,7 +383,7 @@ def processDirectives(Map drctv) {
     if (drctv["conda"] instanceof List) {
       drctv["conda"] = drctv["conda"].join(" ")
     }
-    assert drctv["conda"] instanceof String
+    assert drctv["conda"] instanceof CharSequence
   }
 
   /* DIRECTIVE container
@@ -394,7 +395,7 @@ def processDirectives(Map drctv) {
       is transformed to "im:latest"
   */
   if (drctv.containsKey("container")) {
-    assert drctv["container"] instanceof Map || drctv["container"] instanceof String
+    assert drctv["container"] instanceof Map || drctv["container"] instanceof CharSequence
     if (drctv["container"] instanceof Map) {
       def m = drctv["container"]
       assertMapKeys(m, [ "registry", "image", "tag" ], ["image"], "container")
@@ -414,7 +415,7 @@ def processDirectives(Map drctv) {
     if (drctv["containerOptions"] instanceof List) {
       drctv["containerOptions"] = drctv["containerOptions"].join(" ")
     }
-    assert drctv["containerOptions"] instanceof String
+    assert drctv["containerOptions"] instanceof CharSequence
   }
 
   /* DIRECTIVE cpus
@@ -434,7 +435,7 @@ def processDirectives(Map drctv) {
     - "10.B"
   */
   if (drctv.containsKey("disk")) {
-    assert drctv["disk"] instanceof String
+    assert drctv["disk"] instanceof CharSequence
     // assert drctv["disk"].matches("[0-9]+(\\.[0-9]*)? *[KMGTPEZY]?B")
     // ^ does not allow closures
   }
@@ -454,7 +455,7 @@ def processDirectives(Map drctv) {
     - "finish"
   */
   if (drctv.containsKey("errorStrategy")) {
-    assert drctv["errorStrategy"] instanceof String
+    assert drctv["errorStrategy"] instanceof CharSequence
     assert drctv["errorStrategy"] in ["terminate", "finish", "ignore", "retry"] : "Unexpected value for errorStrategy"
   }
 
@@ -464,7 +465,7 @@ def processDirectives(Map drctv) {
     - "sge"
   */
   if (drctv.containsKey("executor")) {
-    assert drctv["executor"] instanceof String
+    assert drctv["executor"] instanceof CharSequence
     assert drctv["executor"] in ["local", "sge", "uge", "lsf", "slurm", "pbs", "pbspro", "moab", "condor", "nqsii", "ignite", "k8s", "awsbatch", "google-pipelines"] : "Unexpected value for executor"
   }
 
@@ -473,7 +474,7 @@ def processDirectives(Map drctv) {
     - "n1-highmem-8"
   */
   if (drctv.containsKey("machineType")) {
-    assert drctv["machineType"] instanceof String
+    assert drctv["machineType"] instanceof CharSequence
   }
 
   /* DIRECTIVE maxErrors
@@ -511,7 +512,7 @@ def processDirectives(Map drctv) {
     - "10.B"
   */
   if (drctv.containsKey("memory")) {
-    assert drctv["memory"] instanceof String
+    assert drctv["memory"] instanceof CharSequence
     // assert drctv["memory"].matches("[0-9]+(\\.[0-9]*)? *[KMGTPEZY]?B")
     // ^ does not allow closures
   }
@@ -526,7 +527,7 @@ def processDirectives(Map drctv) {
     if (drctv["module"] instanceof List) {
       drctv["module"] = drctv["module"].join(":")
     }
-    assert drctv["module"] instanceof String
+    assert drctv["module"] instanceof CharSequence
   }
 
   /* DIRECTIVE penv
@@ -534,7 +535,7 @@ def processDirectives(Map drctv) {
     - "smp"
   */
   if (drctv.containsKey("penv")) {
-    assert drctv["penv"] instanceof String
+    assert drctv["penv"] instanceof CharSequence
   }
 
   /* DIRECTIVE pod
@@ -571,7 +572,7 @@ def processDirectives(Map drctv) {
     def pblsh = drctv["publishDir"]
     
     // check different options
-    assert pblsh instanceof List || pblsh instanceof Map || pblsh instanceof String
+    assert pblsh instanceof List || pblsh instanceof Map || pblsh instanceof CharSequence
     
     // turn into list if not already so
     // for some reason, 'if (!pblsh instanceof List) pblsh = [ pblsh ]' doesn't work.
@@ -580,7 +581,7 @@ def processDirectives(Map drctv) {
     // check elements of publishDir
     pblsh = pblsh.collect{ elem ->
       // turn into map if not already so
-      elem = elem instanceof String ? [ path: elem ] : elem
+      elem = elem instanceof CharSequence ? [ path: elem ] : elem
 
       // check types and keys
       assert elem instanceof Map : "Expected publish argument '$elem' to be a String or a Map. Found: class ${elem.getClass()}"
@@ -588,19 +589,19 @@ def processDirectives(Map drctv) {
 
       // check elements in map
       assert elem.containsKey("path")
-      assert elem["path"] instanceof String
+      assert elem["path"] instanceof CharSequence
       if (elem.containsKey("mode")) {
-        assert elem["mode"] instanceof String
+        assert elem["mode"] instanceof CharSequence
         assert elem["mode"] in [ "symlink", "rellink", "link", "copy", "copyNoFollow", "move" ]
       }
       if (elem.containsKey("overwrite")) {
         assert elem["overwrite"] instanceof Boolean
       }
       if (elem.containsKey("pattern")) {
-        assert elem["pattern"] instanceof String
+        assert elem["pattern"] instanceof CharSequence
       }
       if (elem.containsKey("saveAs")) {
-        assert elem["saveAs"] instanceof String //: "saveAs as a Closure is currently not supported. Surround your closure with single quotes to get the desired effect. Example: '\{ foo \}'"
+        assert elem["saveAs"] instanceof CharSequence //: "saveAs as a Closure is currently not supported. Surround your closure with single quotes to get the desired effect. Example: '\{ foo \}'"
       }
       if (elem.containsKey("enabled")) {
         assert elem["enabled"] instanceof Boolean
@@ -623,7 +624,7 @@ def processDirectives(Map drctv) {
     if (drctv["queue"] instanceof List) {
       drctv["queue"] = drctv["queue"].join(",")
     }
-    assert drctv["queue"] instanceof String
+    assert drctv["queue"] instanceof CharSequence
   }
 
   /* DIRECTIVE label
@@ -633,12 +634,12 @@ def processDirectives(Map drctv) {
     - ["big_mem", "big_cpu"]
   */
   if (drctv.containsKey("label")) {
-    if (drctv["label"] instanceof String) {
+    if (drctv["label"] instanceof CharSequence) {
       drctv["label"] = [ drctv["label"] ]
     }
     assert drctv["label"] instanceof List
     drctv["label"].forEach { label ->
-      assert label instanceof String
+      assert label instanceof CharSequence
       // assert label.matches("[a-zA-Z0-9]([a-zA-Z0-9_]*[a-zA-Z0-9])?")
       // ^ does not allow closures
     }
@@ -652,7 +653,7 @@ def processDirectives(Map drctv) {
     - "ram-disk"
   */
   if (drctv.containsKey("scratch")) {
-    assert drctv["scratch"] == true || drctv["scratch"] instanceof String
+    assert drctv["scratch"] == true || drctv["scratch"] instanceof CharSequence
   }
 
   /* DIRECTIVE storeDir
@@ -660,7 +661,7 @@ def processDirectives(Map drctv) {
     - "/path/to/storeDir"
   */
   if (drctv.containsKey("storeDir")) {
-    assert drctv["storeDir"] instanceof String
+    assert drctv["storeDir"] instanceof CharSequence
   }
 
   /* DIRECTIVE stageInMode
@@ -669,7 +670,7 @@ def processDirectives(Map drctv) {
     - "link"
   */
   if (drctv.containsKey("stageInMode")) {
-    assert drctv["stageInMode"] instanceof String
+    assert drctv["stageInMode"] instanceof CharSequence
     assert drctv["stageInMode"] in ["copy", "link", "symlink", "rellink"]
   }
 
@@ -679,7 +680,7 @@ def processDirectives(Map drctv) {
     - "link"
   */
   if (drctv.containsKey("stageOutMode")) {
-    assert drctv["stageOutMode"] instanceof String
+    assert drctv["stageOutMode"] instanceof CharSequence
     assert drctv["stageOutMode"] in ["copy", "move", "rsync"]
   }
 
@@ -689,7 +690,7 @@ def processDirectives(Map drctv) {
     - '$id'
   */
   if (drctv.containsKey("tag")) {
-    assert drctv["tag"] instanceof String
+    assert drctv["tag"] instanceof CharSequence
   }
 
   /* DIRECTIVE time
@@ -699,7 +700,7 @@ def processDirectives(Map drctv) {
     - "1day 6hours 3minutes 30seconds"
   */
   if (drctv.containsKey("time")) {
-    assert drctv["time"] instanceof String
+    assert drctv["time"] instanceof CharSequence
     // todo: validation regex?
   }
 
@@ -728,7 +729,7 @@ def processProcessArgs(Map args) {
 
   // check whether 'key' exists
   assert processArgs.containsKey("key")
-  assert processArgs["key"] instanceof String
+  assert processArgs["key"] instanceof CharSequence
   assert processArgs["key"] ==~ /^[a-zA-Z_][a-zA-Z0-9_]*$/
 
   // check whether directives exists and apply defaults
@@ -740,6 +741,35 @@ def processProcessArgs(Map args) {
   assert processArgs.containsKey("auto")
   assert processArgs["auto"] instanceof Map
   processArgs["auto"] = processAuto(thisDefaultProcessArgs.auto + processArgs["auto"])
+
+  // auto define publish, if so desired
+  if (processArgs.auto.publish == true && (processArgs.directives.publishDir ?: [:]).isEmpty()) {
+    assert params.containsKey("publishDir") : 
+      "Error in module '${processArgs['key']}': if auto.publish is true, params.publishDir needs to be defined.\n" +
+      "  Example: params.transcriptsDir = \"./output/\""
+    
+    // TODO: more asserts on publishDir?
+    processArgs.directives.publishDir = [[ 
+      path: params.publishDir, 
+      pattern: "[A-Z,a-z,0-9,_,-]*" // don't publish hidden files, by defaults
+    ]]
+  }
+
+  // auto define transcript, if so desired
+  if (processArgs.auto.transcript == true) {
+    assert params.containsKey("transcriptsDir") || params.containsKey("publishDir") : 
+      "Error in module '${processArgs['key']}': if auto.transcript is true, either params.transcriptsDir or params.publishDir needs to be defined.\n" +
+      "  Example: params.transcriptsDir = \"./transcripts/\""
+    def transcriptsDir = params.containsKey("transcriptsDir") ? params.transcriptsDir : params.publishDir + "/_transcripts"
+    def timestamp = Nextflow.getSession().getWorkflowMetadata().start.format('yyyy-MM-dd_HH-mm-ss')
+    def transcriptsPublishDir = [ 
+      path: "$transcriptsDir/${timestamp}/\${id}.${processArgs["key"]}/", 
+      saveAs: '{it.replaceAll("^.", "")}',
+      pattern: ".command*"
+    ]
+    def publishDirs = processArgs.directives.publishDir ?: []
+    processArgs.directives.publishDir = publishDirs + transcriptsPublishDir
+  }
 
   for (nam in [ "map", "mapId", "mapData", "mapPassthrough" ]) {
     if (processArgs.containsKey(nam) && processArgs[nam]) {
@@ -756,11 +786,12 @@ def processFactory(Map processArgs) {
   def procKey = processArgs["key"] + "_process"
 
   def meta = ScriptMeta.current()
-  
+
   assert ! (procKey in meta.getProcessNames()) : 
-    "Error in module '${processArgs['key']}': process key '$procKey' is already used.\n" +
-    "  Make sure to specify a new key when running a Viash workflow multiple times.\n" +
-    "  Example: myModule.run(key: 'foo') | myModule.run(key: 'bar')"
+    "Error in module '${workflowKey}': workflow key '$procKey' is already used.\n" +
+    "  Make sure to specify a new key when running a Viash module multiple times.\n" +
+    "  Example: myModule.run(key: 'foo') | myModule.run(key: 'bar')\n" +
+    "  Expected: ! '$procKey' in ScriptMeta.current().getProcessNames()"
 
   // subset directives and convert to list of tuples
   def drctv = processArgs.directives
@@ -769,7 +800,7 @@ def processFactory(Map processArgs) {
   // convert publish array into tags
   def valueToStr = { val ->
     // ignore closures
-    if (val instanceof String) {
+    if (val instanceof CharSequence) {
       if (!val.matches('^[{].*[}]$')) {
         '"' + val + '"'
       } else {
@@ -788,15 +819,15 @@ def processFactory(Map processArgs) {
     if (key in ["label", "publishDir"]) {
       value.collect{ val ->
         if (val instanceof Map) {
-          "\n  $key " + val.collect{ k, v -> k + ": " + valueToStr(v) }.join(", ")
+          "\n$key " + val.collect{ k, v -> k + ": " + valueToStr(v) }.join(", ")
         } else {
-          "\n  $key " + valueToStr(val)
+          "\n$key " + valueToStr(val)
         }
       }.join()
     } else if (value instanceof Map) {
-      "\n  $key " + value.collect{ k, v -> k + ": " + valueToStr(v) }.join(", ")
+      "\n$key " + value.collect{ k, v -> k + ": " + valueToStr(v) }.join(", ")
     } else {
-      "\n  $key " + valueToStr(value)
+      "\n$key " + valueToStr(value)
     }
   }.join()
 
@@ -815,8 +846,14 @@ def processFactory(Map processArgs) {
         ', path{[".exitcode"] + args.' + par.name + '}'
       }
     }
-    // .collect { par -> ', path("${args.' + par.name + '}"' + (par.required ? "" : ", optional: true") + ')' }
     .join()
+
+  // TODO: move this functionality somewhere else?
+  if (processArgs.auto.transcript) {
+    outputPaths = outputPaths + ', path{[".exitcode", ".command*"]}'
+  } else {
+    outputPaths = outputPaths + ', path{[".exitcode"]}'
+  }
 
   // construct inputFileExports
   def inputFileExports = thisFunctionality.arguments
@@ -882,6 +919,9 @@ def processFactory(Map processArgs) {
   |""".stripMargin()
 
   // TODO: print on debug
+  // if (processArgs.debug == true) {
+  //   println("######################\n$procStr\n######################")
+  // }
 
   // create runtime process
   def ownerParams = new ScriptBinding.ParamsMap()
@@ -954,7 +994,7 @@ def workflowFactory(Map args) {
           "  Found: tuple.size() == ${tuple.size()}"
         
         // check id field
-        assert tuple[0] instanceof String : 
+        assert tuple[0] instanceof CharSequence : 
           "Error in module '${workflowKey}': first element of tuple in channel should be a String\n" +
           "  Example: [\"id\", [input: file('foo.txt'), arg: 10]].\n" +
           "  Found: ${tuple[0]}"
@@ -990,11 +1030,11 @@ def workflowFactory(Map args) {
 
           // TODO: allow renameKeys to be a function?
           processArgs.renameKeys.each { newKey, oldKey ->
-            assert newKey instanceof String : 
+            assert newKey instanceof CharSequence : 
               "Error renaming data keys in module '${workflowKey}' id '${tuple[0]}'.\n" +
               "  Example: renameKeys: ['new_key': 'old_key'].\n" +
               "  Expected class of newKey: String. Found: newKey.getClass() is ${newKey.getClass()}"
-            assert oldKey instanceof String : 
+            assert oldKey instanceof CharSequence : 
               "Error renaming data keys in module '${workflowKey}' id '${tuple[0]}'.\n" +
               "  Example: renameKeys: ['new_key': 'old_key'].\n" +
               "  Expected class of oldKey: String. Found: oldKey.getClass() is ${oldKey.getClass()}"

@@ -1,11 +1,11 @@
 #!/bin/bash
 
 export NXF_VER=21.10.6
-export NXF_TEMP=tmp
 
 nextflow run main.nf \
   -entry run_main \
-  --publishDir output/ \
+  --publishDir output/auto/ \
+  --transcriptsDir output/transcripts/ \
   -resume  #-dump-hashes
 
 
