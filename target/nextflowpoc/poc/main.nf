@@ -16,7 +16,6 @@ nextflow.enable.dsl=2
 
 // Required imports
 import groovy.json.JsonSlurper
-// import groovy.json.JsonOutput
 
 // initialise slurper
 def jsonSlurper = new JsonSlurper()
@@ -274,37 +273,23 @@ VIASHMAIN
 Rscript "$tempscript"
 '''
 
-thisDefaultDirectives = jsonSlurper.parseText("""{
-  "accelerator" : {
-    
-  },
-  "cache" : "lenient",
-  "conda" : [
-  ],
-  "container" : "rocker/tidyverse:4.0.5",
-  "containerOptions" : [
-  ],
-  "module" : [
-  ],
-  "pod" : [
-  ],
-  "publishDir" : [
-  ],
-  "queue" : [
-  ],
-  "label" : [
-  ]
-}""")
-
 thisDefaultProcessArgs = [
   // key to be used to trace the process and determine output names
   key: thisFunctionality.name + "_",
   // fixed arguments to be passed to script
   args: [:],
-  // whether or not to accept [id, Path, ...] inputs instead of [id, [input: Path], ...]
-  simplifyInput: true,
-  // if output is a single file, will simplify output to [id, Path, ...] instead of [id, [output: Path], ...]
-  simplifyOutput: true,
+  // default directives
+  directives: jsonSlurper.parseText("""{
+  "cache" : "lenient",
+  "container" : "rocker/tidyverse:4.0.5"
+}"""),
+  // auto settings
+  auto: jsonSlurper.parseText("""{
+  "simplifyInput" : true,
+  "simplifyOutput" : true,
+  "transcript" : false,
+  "publish" : false
+}"""),
   // apply a map over the incoming tuple
   // example: { tup -> [ tup[0], [input: tup[1].output], tup[2] ] }
   map: null,
@@ -331,6 +316,7 @@ import nextflow.script.ScriptBinding
 import nextflow.script.ScriptMeta
 import nextflow.script.ScriptParser
 
+// retrieve resourcesDir here to make sure the correct path is found
 resourcesDir = ScriptMeta.current().getScriptPath().getParent()
 
 def assertMapKeys(map, expectedKeys, requiredKeys, mapName) {
@@ -346,7 +332,7 @@ def assertMapKeys(map, expectedKeys, requiredKeys, mapName) {
 // TODO: unit test processDirectives
 def processDirectives(Map drctv) {
   // remove null values
-  drctv = drctv.findAll{k, v -> v}
+  drctv = drctv.findAll{k, v -> v != null}
 
   /* DIRECTIVE accelerator
     accepted examples:
@@ -720,6 +706,22 @@ def processDirectives(Map drctv) {
   return drctv
 }
 
+// TODO: unit test processAuto
+def processAuto(Map auto) {
+  // remove null values
+  auto = auto.findAll{k, v -> v != null}
+
+  expectedKeys = ["simplifyInput", "simplifyOutput", "transcript", "publish"]
+
+  // check whether expected keys are all booleans (for now)
+  for (key in expectedKeys) {
+    assert auto.containsKey(key)
+    assert auto[key] instanceof Boolean
+  }
+
+  return auto.subMap(expectedKeys)
+}
+
 def processProcessArgs(Map args) {
   // override defaults with args
   def processArgs = thisDefaultProcessArgs + args
@@ -730,11 +732,14 @@ def processProcessArgs(Map args) {
   assert processArgs["key"] ==~ /^[a-zA-Z_][a-zA-Z0-9_]*$/
 
   // check whether directives exists and apply defaults
-  if (!processArgs.containsKey("directives")) {
-    processArgs["directives"] = [:]
-  }
+  assert processArgs.containsKey("directives")
   assert processArgs["directives"] instanceof Map
-  processArgs["directives"] = processDirectives(thisDefaultDirectives + processArgs["directives"])
+  processArgs["directives"] = processDirectives(thisDefaultProcessArgs.directives + processArgs["directives"])
+
+  // check whether directives exists and apply defaults
+  assert processArgs.containsKey("auto")
+  assert processArgs["auto"] instanceof Map
+  processArgs["auto"] = processAuto(thisDefaultProcessArgs.auto + processArgs["auto"])
 
   for (nam in [ "map", "mapId", "mapData", "mapPassthrough" ]) {
     if (processArgs.containsKey(nam) && processArgs[nam]) {
@@ -955,7 +960,7 @@ def workflowFactory(Map args) {
           "  Found: ${tuple[0]}"
         
         // match file to input file
-        if (processArgs.simplifyInput && tuple[1] instanceof Path) {
+        if (processArgs.auto.simplifyInput && tuple[1] instanceof Path) {
           def inputFiles = thisFunctionality.arguments
             .findAll { it.type == "file" && it.direction == "input" }
           
@@ -1103,7 +1108,7 @@ def workflowFactory(Map args) {
         // drop null outputs
         outputFiles.removeAll{it.value == null}
 
-        if (processArgs.simplifyOutput && outputFiles.size() == 1) {
+        if (processArgs.auto.simplifyOutput && outputFiles.size() == 1) {
           outputFiles = outputFiles.values()[0]
         }
 
