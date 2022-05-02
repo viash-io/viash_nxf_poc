@@ -4,3 +4,6 @@ output
 test_output
 test*.nf
 tmp
+
+.metals
+.vscode
