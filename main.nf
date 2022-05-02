@@ -1,32 +1,39 @@
 nextflow.enable.dsl=2
 
-// include { poc } from "./target/nextflow/poc_new/main.nf" params(params)
-include { poc } from "./target/nextflowpoc/poc/main.nf" params(params)
-
-tupleOutToTupleIn = { [ input_one: it[1].output_one, input_multi: it[1].output_multi ] }
-
-// TODO: add check for nxf version for opt & multiple outputs
+ include { poc } from "./target/nextflowpoc/poc/main.nf" params(params)
 
 workflow run_main {
-    main:
-    // TODO: test multiple inputs and outputs
-
-    output_ = Channel.value(
-        [ 
-          "foo", // id
-          [  // data
-            // input_one: file("run.sh"), 
-            input_one: file("nextflow.config"),
-            input_multi: [ file("README.md"), file("run.sh") ], 
-            input_opt: file("main.nf"), 
-            string: "step 1" 
+    Channel.fromList(
+        [
+          [ 
+            "foo",
+            [
+              input_one: file("nextflow.config"),
+              input_multi: [ file("README.md"), file("run.sh") ], 
+              input_opt: file("main.nf"),
+              string: "foo"
+            ]
           ],
-          "step2" // passthrough
-        ] 
+          [ 
+            "bar",
+            [
+              input_one: file("nextflow.config"),
+              input_multi: [ file("README.md"), file("run.sh") ], 
+              input_opt: file("main.nf"),
+              string: "bar"
+            ]
+          ]
+        ]
       )
       | view{ "STEP0: " + it }
-      | poc
-      | view{ "STEP1: " + it }
+      | poc.run(
+          args: [ integer: 10 ],
+          directives: [
+            publishDir: "output/",
+            label: ["highmem", "highcpu"]
+          ]
+        )
+      | view{ "STEP1: $it"}
       | poc.run(
           key: "poc2", 
           map: { [
@@ -55,5 +62,4 @@ workflow run_main {
           args: [ string: "step 3", integer: 456, "doubles": [0.456, .123] ]
         )
       | view{ "STEP3: " + it }
-    emit: output_
 }
