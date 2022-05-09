@@ -4,8 +4,9 @@ export NXF_VER=21.10.6
 
 nextflow run main.nf \
   -entry run_main \
-  --publishDir output/auto/ \
-  --transcriptsDir output/transcripts/ \
+  --publishDir output/ \
+  # --publishDir output/auto/ \
+  # --transcriptsDir output/transcripts/ \
   -resume  #-dump-hashes
 
 

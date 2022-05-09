@@ -41,7 +41,7 @@ workflow run_main {
             [ input_one: it[1].output_one, input_multi: it[1].output_multi, string: it[2] ], 
             it[1].output_opt
           ] }, // put passthrough in string arg, put output_opt in passthrough
-          auto: [ publish: true ]
+          // auto: [ publish: true ]
         )
       | view{ "STEP2: " + it }
       | poc.run(
@@ -60,7 +60,8 @@ workflow run_main {
           // include passthrough in data tuple again
           // remove input_multi
           map: { [ it[0], [ input_one: it[1].output_one, input_multi: [], input_opt: it[2] ] ] },
-          args: [ string: "step 3", integer: 456, "doubles": [0.456, .123] ]
+          args: [ string: "step 3", integer: 456, "doubles": [0.456, .123] ],
+          auto: [ publish: true ]
         )
       | view{ "STEP3: " + it }
 }

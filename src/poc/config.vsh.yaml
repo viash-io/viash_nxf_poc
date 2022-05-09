@@ -110,7 +110,7 @@ platforms:
     publish: true
   - type: nextflow
     id: nextflowpoc
-    variant: neo
+    variant: vdsl3
     directives:
       container: "rocker/tidyverse:4.0.5" # need to manually define container for now
       cache: lenient
