@@ -21,11 +21,11 @@ def escape(str) {
 }
 
 def renderArg(it) {
-  if (it.otype == "") {
+  if (it.flags == "") {
     return "'" + escape(it.value) + "'"
   } else if (it.type == "boolean_true") {
     if (it.value.toLowerCase() == "true") {
-      return it.otype + it.name
+      return it.flags + it.name
     } else {
       return ""
     }
@@ -33,13 +33,13 @@ def renderArg(it) {
     if (it.value.toLowerCase() == "true") {
       return ""
     } else {
-      return it.otype + it.name
+      return it.flags + it.name
     }
   } else if (it.value == "no_default_value_configured") {
     return ""
   } else {
     def retVal = it.value in List && it.multiple ? it.value.join(it.multiple_sep): it.value
-    return it.otype + it.name + " '" + escape(retVal) + "'"
+    return it.flags + it.name + " '" + escape(retVal) + "'"
   }
 }
 
